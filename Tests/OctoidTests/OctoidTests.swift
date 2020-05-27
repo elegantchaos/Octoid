@@ -18,4 +18,17 @@ final class OctoidTests: XCTestCase {
         XCTAssertEqual(event.type, "PushEvent")
         XCTAssertEqual(event.created_at, formatter.date(from: "2020-05-26T19:06:39Z"))
     }
+    
+    func testWorkflowDecoding() {
+        let data = self.testData(named: "runs", withExtension: "json")
+        let decoder = JSONDecoder()
+        
+        let runs = try! decoder.decode(WorkflowRuns.self, from: data)
+        XCTAssertEqual(runs.total_count, 1)
+        
+        let run = runs.latestRun
+        XCTAssertEqual(run.id, 115887997)
+        XCTAssertEqual(run.status, "in_progress")
+        XCTAssertNil(run.conclusion)
+    }
 }
