@@ -5,7 +5,7 @@ import PackageDescription
 let package = Package(
     name: "Octoid",
     platforms: [
-        .macOS(.v10_15), .iOS(.v12), .tvOS(.v12), .watchOS(.v5)
+        .macOS(.v10_15), .iOS(.v13), .tvOS(.v13), .watchOS(.v5)
     ],
     products: [
         .library(
@@ -14,6 +14,7 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/elegantchaos/Logger.git", from: "1.5.5"),
+        .package(url: "https://github.com/elegantchaos/XCTestExtensions.git", from: "1.1.1"),
     ],
     targets: [
         .target(
@@ -21,6 +22,6 @@ let package = Package(
             dependencies: ["Logger"]),
         .testTarget(
             name: "OctoidTests",
-            dependencies: ["Octoid"]),
+            dependencies: ["Octoid", "XCTestExtensions"]),
     ]
 )

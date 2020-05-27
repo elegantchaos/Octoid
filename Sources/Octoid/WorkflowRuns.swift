@@ -5,19 +5,19 @@
 
 import Foundation
 
-struct WorkflowRuns: Codable {
+public struct WorkflowRuns: Codable {
     let total_count: Int
     let workflow_runs: [WorkflowRun]
     
-    var latestRun: WorkflowRun {
+    public var latestRun: WorkflowRun {
         let sorted = workflow_runs.sorted(by: \WorkflowRun.run_number)
         return sorted[total_count - 1]
     }
 }
 
-struct WorkflowRun: Codable {
+public struct WorkflowRun: Codable {
     let id: Int
     let run_number: Int
-    let status: String
-    let conclusion: String?
+    public let status: String
+    public let conclusion: String?
 }

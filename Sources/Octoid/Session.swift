@@ -4,61 +4,52 @@
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
 import Foundation
+import Logger
 
-public class Session {
-    let repo: Repository
-    let context: Context
-    var lastEvent: Date
+public let sessionChannel = Channel("com.elegantchaos.octoid.session")
+
+open class Session {
+    public let repo: Repository
+    public let context: Context
+    public var lastEvent: Date
     
-    public var fullName: String { return "\(repo.owner)/\(repo.name)" }
-    var tagKey: String { return "\(fullName)-tag" }
-    var lastEventKey: String { return "\(fullName)-lastEvent" }
-    
-    var eventsQuery: String { return  "repos/\(repo.owner)/\(repo.name)/events" }
-    var workflowQuery: String { return  "repos/\(repo.owner)/\(repo.name)/actions/workflows/Tests.yml/runs" }
+    public var eventsQuery = Query(name: "events") { repo in return  "repos/\(repo.fullName)/events" }
+    public var workflowQuery = Query(name: "runs") { repo in return  "repos/\(repo.fullName)/actions/workflows/Tests.yml/runs" }
     
     public init(repo: Repository, context: Context) {
         self.repo = repo
         self.context = context
         self.lastEvent = Date(timeIntervalSinceReferenceDate: 0)
-        load()
-    }
-    
-    func load() {
-        let seconds = UserDefaults.standard.double(forKey: lastEventKey)
-        if seconds != 0 {
-            lastEvent = Date(timeIntervalSinceReferenceDate: seconds)
-        }
-    }
-    
-    func save() {
-        let defaults = UserDefaults.standard
-        defaults.set(lastEvent.timeIntervalSinceReferenceDate, forKey: lastEventKey)
     }
         
-    enum ResponseState {
+    public enum ResponseState {
         case updated
         case unchanged
         case other
     }
     
-    typealias Handler = (ResponseState, Data) throws -> Bool
-    
-    func sendRequest(query: String, tag: String? = nil, repeating: Bool, completionHandler: @escaping Handler ) {
-        let authorization = "bearer \(context.token)"
-        var request = URLRequest(url: context.endpoint.appendingPathComponent(query))
-        request.addValue(authorization, forHTTPHeaderField: "Authorization")
-        request.httpMethod = "GET"
+    public typealias Handler = (ResponseState, Data) throws -> Bool
+
+    public func schedule(query: Query, for deadline: DispatchTime, tag: String? = nil, repeatingEvery: Int? = nil, completionHandler: @escaping Handler ) {
+        let distance = deadline.distance(to: DispatchTime.now())
+        sessionChannel.log("Scheduled \(query.name) in \(distance)")
+        DispatchQueue.global(qos: .background).asyncAfter(deadline: deadline) {
+            self.sendRequest(query: self.eventsQuery, repeatingEvery: repeatingEvery, completionHandler: completionHandler)
+        }
+    }
+
+    func sendRequest(query: Query, tag: String? = nil, repeatingEvery: Int? = nil, completionHandler: @escaping Handler ) {
+        var request = query.request(with: context, repo: repo)
         if let tag = tag {
             request.addValue(tag, forHTTPHeaderField: "If-None-Match")
         }
-        
+
         var updatedTag = tag
-        var shouldRepeat = repeating
-        var repeatInterval = DispatchTimeInterval.seconds(60)
+        var shouldRepeat = repeatingEvery != nil
+        var repeatInterval = repeatingEvery ?? 0
         let session = URLSession.shared
         let task = session.dataTask(with: request) { data, response, error in
-            networkingChannel.log("got response for \(self.fullName)")
+            networkingChannel.log("got response for \(self.repo)")
             if let error = error {
                 networkingChannel.log(error)
             }
@@ -70,7 +61,7 @@ public class Session {
                 let data = data {
                 networkingChannel.log("rate limit remaining: \(remaining)")
                 if let seconds = response.value(forHTTPHeaderField: "X-Poll-Interval").asInt {
-                    repeatInterval = DispatchTimeInterval.seconds(seconds)
+                    repeatInterval = max(repeatInterval, seconds)
                 }
                 
                 switch response.statusCode {
@@ -90,9 +81,9 @@ public class Session {
                 updatedTag = tag
                 if state != .other {
                     do {
-                        shouldRepeat = try shouldRepeat && completionHandler(state, data)
+                        shouldRepeat = try shouldRepeat || completionHandler(state, data)
                     } catch {
-                        networkingChannel.log("Error thrown processing data \(error)")
+                        sessionChannel.log("Error thrown processing \(query.name) for \(self.repo)\n\(error)\n\(data.prettyPrinted)")
                     }
                 }
             } else {
@@ -103,13 +94,11 @@ public class Session {
             }
             
             if shouldRepeat {
-                DispatchQueue.global(qos: .background).asyncAfter(deadline: DispatchTime.now().advanced(by: repeatInterval)) {
-                    self.sendRequest(query: query, tag: updatedTag, repeating: repeating, completionHandler: completionHandler)
-                }
+                self.schedule(query: query, for: DispatchTime.now().advanced(by: DispatchTimeInterval.seconds(repeatInterval)), tag: updatedTag, repeatingEvery: repeatingEvery, completionHandler: completionHandler)
             }
         }
         
-        networkingChannel.log("sent request for \(fullName)")
+        sessionChannel.log("Sending \(query.name) for \(repo) (\(request))")
         task.resume()
     }
 }
@@ -132,3 +121,17 @@ extension Optional where Wrapped == String {
     }
 }
 
+
+public extension Data {
+    var prettyPrinted: String {
+        if let decoded = try? JSONSerialization.jsonObject(with: self, options: []), let encoded = try? JSONSerialization.data(withJSONObject: decoded, options: .prettyPrinted), let string = String(data: encoded, encoding: .utf8) {
+            return string
+        }
+        
+        if let string = String(data: self, encoding: .utf8) {
+            return string
+        }
+        
+        return String(describing: self)
+    }
+}
