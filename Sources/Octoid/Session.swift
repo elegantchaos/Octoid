@@ -9,12 +9,13 @@ import Logger
 public let sessionChannel = Channel("com.elegantchaos.octoid.session")
 
 open class Session {
+    public let session = URLSession.shared
     public let repo: Repository
     public let context: Context
     public var lastEvent: Date
     
-    public var eventsQuery = Query(name: "events") { repo in return  "repos/\(repo.fullName)/events" }
-    public var workflowQuery = Query(name: "runs") { repo in return  "repos/\(repo.fullName)/actions/workflows/Tests.yml/runs" }
+    public var eventsQuery = Query(name: "events", response: Events.self) { repo in return  "repos/\(repo.fullName)/events" }
+    public var workflowQuery = Query(name: "runs", response: WorkflowRuns.self) { repo in return  "repos/\(repo.fullName)/actions/workflows/Tests.yml/runs" }
     
     public init(repo: Repository, context: Context) {
         self.repo = repo
@@ -28,26 +29,23 @@ open class Session {
         case other
     }
     
-    public typealias Handler = (ResponseState, Data) throws -> Bool
-
-    public func schedule(query: Query, for deadline: DispatchTime, tag: String? = nil, repeatingEvery: Int? = nil, completionHandler: @escaping Handler ) {
+    public func schedule<ResponseType>(query: Query, for deadline: DispatchTime, tag: String? = nil, repeatingEvery: Int? = nil, completionHandler: @escaping (ResponseState, ResponseType) -> Bool )  where ResponseType: Decodable {
         let distance = deadline.distance(to: DispatchTime.now())
         sessionChannel.log("Scheduled \(query.name) in \(distance)")
         DispatchQueue.global(qos: .background).asyncAfter(deadline: deadline) {
-            self.sendRequest(query: self.eventsQuery, repeatingEvery: repeatingEvery, completionHandler: completionHandler)
+            self.sendRequest(query: query, repeatingEvery: repeatingEvery, completionHandler: completionHandler)
         }
     }
 
-    func sendRequest(query: Query, tag: String? = nil, repeatingEvery: Int? = nil, completionHandler: @escaping Handler ) {
+    func sendRequest<ResponseType>(query: Query, tag: String? = nil, repeatingEvery: Int? = nil, completionHandler: @escaping (ResponseState, ResponseType) -> Bool ) where ResponseType: Decodable {
         var request = query.request(with: context, repo: repo)
         if let tag = tag {
             request.addValue(tag, forHTTPHeaderField: "If-None-Match")
         }
-
+        
         var updatedTag = tag
         var shouldRepeat = repeatingEvery != nil
         var repeatInterval = repeatingEvery ?? 0
-        let session = URLSession.shared
         let task = session.dataTask(with: request) { data, response, error in
             networkingChannel.log("got response for \(self.repo)")
             if let error = error {
@@ -81,9 +79,12 @@ open class Session {
                 updatedTag = tag
                 if state != .other {
                     do {
-                        shouldRepeat = try shouldRepeat || completionHandler(state, data)
+                        let decoder = JSONDecoder()
+                        decoder.dateDecodingStrategy = .iso8601
+                        let decoded: ResponseType = try decoder.decode(ResponseType.self, from: data)
+                        shouldRepeat = shouldRepeat || completionHandler(state, decoded)
                     } catch {
-                        sessionChannel.log("Error thrown processing \(query.name) for \(self.repo)\n\(error)\n\(data.prettyPrinted)")
+                        sessionChannel.log("Error thrown processing \(query.name) for \(ResponseType.self) \(self.repo)\n\(error)\n\(data.prettyPrinted)")
                     }
                 }
             } else {

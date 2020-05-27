@@ -7,6 +7,9 @@ import Foundation
 
 public typealias Events = [Event]
 
+extension Events: QueryResponse {
+}
+
 public struct Event: Codable {
     public let id: String
     public let type: String

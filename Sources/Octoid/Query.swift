@@ -5,8 +5,13 @@
 
 import Foundation
 
+protocol QueryResponse: Codable {
+    
+}
+
 public struct Query {
     let name: String
+    let response: QueryResponse.Type
     let query: (Repository) -> String
     
     func request(with context: Context, repo: Repository) -> URLRequest {

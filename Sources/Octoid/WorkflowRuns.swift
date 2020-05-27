@@ -15,6 +15,9 @@ public struct WorkflowRuns: Codable {
     }
 }
 
+extension WorkflowRuns: QueryResponse {
+}
+
 public struct WorkflowRun: Codable {
     let id: Int
     let run_number: Int
