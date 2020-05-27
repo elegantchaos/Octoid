@@ -1,8 +1,10 @@
 [
   {
-    "id" : "12444868583",
-    "created_at" : "2020-05-26T19:06:39Z",
-    "type" : "PushEvent",
+    "repo" : {
+      "id" : 267077251,
+      "name" : "elegantchaos\/_publicTest",
+      "url" : "https:\/\/api.github.com\/repos\/elegantchaos\/_publicTest"
+    },
     "actor" : {
       "display_login" : "samdeane",
       "id" : 206306,
@@ -11,10 +13,15 @@
       "url" : "https:\/\/api.github.com\/users\/samdeane",
       "gravatar_id" : ""
     },
-    "repo" : {
-      "id" : 267077251,
-      "name" : "elegantchaos\/_publicTest",
-      "url" : "https:\/\/api.github.com\/repos\/elegantchaos\/_publicTest"
+    "public" : true,
+    "id" : "12444868583",
+    "created_at" : "2020-05-26T19:06:39Z",
+    "org" : {
+      "id" : 651044,
+      "login" : "elegantchaos",
+      "avatar_url" : "https:\/\/avatars.githubusercontent.com\/u\/651044?",
+      "url" : "https:\/\/api.github.com\/orgs\/elegantchaos",
+      "gravatar_id" : ""
     },
     "payload" : {
       "before" : "96d05b11b173244c62c83fed1e4110f25deaf494",
@@ -36,23 +43,30 @@
         }
       ]
     },
-    "org" : {
-      "id" : 651044,
-      "login" : "elegantchaos",
-      "avatar_url" : "https:\/\/avatars.githubusercontent.com\/u\/651044?",
-      "url" : "https:\/\/api.github.com\/orgs\/elegantchaos",
-      "gravatar_id" : ""
-    },
-    "public" : true
+    "type" : "PushEvent"
   },
   {
-    "type" : "PushEvent",
+    "repo" : {
+      "id" : 267077251,
+      "name" : "elegantchaos\/_publicTest",
+      "url" : "https:\/\/api.github.com\/repos\/elegantchaos\/_publicTest"
+    },
     "actor" : {
       "display_login" : "samdeane",
       "id" : 206306,
       "login" : "samdeane",
       "avatar_url" : "https:\/\/avatars.githubusercontent.com\/u\/206306?",
       "url" : "https:\/\/api.github.com\/users\/samdeane",
+      "gravatar_id" : ""
+    },
+    "public" : true,
+    "id" : "12442881617",
+    "created_at" : "2020-05-26T15:43:00Z",
+    "org" : {
+      "id" : 651044,
+      "login" : "elegantchaos",
+      "avatar_url" : "https:\/\/avatars.githubusercontent.com\/u\/651044?",
+      "url" : "https:\/\/api.github.com\/orgs\/elegantchaos",
       "gravatar_id" : ""
     },
     "payload" : {
@@ -75,36 +89,31 @@
         }
       ]
     },
-    "created_at" : "2020-05-26T15:43:00Z",
-    "public" : true,
-    "org" : {
-      "id" : 651044,
-      "login" : "elegantchaos",
-      "avatar_url" : "https:\/\/avatars.githubusercontent.com\/u\/651044?",
-      "url" : "https:\/\/api.github.com\/orgs\/elegantchaos",
-      "gravatar_id" : ""
-    },
-    "id" : "12442881617",
-    "repo" : {
-      "id" : 267077251,
-      "name" : "elegantchaos\/_publicTest",
-      "url" : "https:\/\/api.github.com\/repos\/elegantchaos\/_publicTest"
-    }
+    "type" : "PushEvent"
   },
   {
+    "repo" : {
+      "id" : 267077251,
+      "name" : "elegantchaos\/_publicTest",
+      "url" : "https:\/\/api.github.com\/repos\/elegantchaos\/_publicTest"
+    },
+    "actor" : {
+      "display_login" : "samdeane",
+      "id" : 206306,
+      "login" : "samdeane",
+      "avatar_url" : "https:\/\/avatars.githubusercontent.com\/u\/206306?",
+      "url" : "https:\/\/api.github.com\/users\/samdeane",
+      "gravatar_id" : ""
+    },
+    "public" : true,
+    "id" : "12442655277",
+    "created_at" : "2020-05-26T15:23:07Z",
     "org" : {
       "id" : 651044,
       "login" : "elegantchaos",
       "avatar_url" : "https:\/\/avatars.githubusercontent.com\/u\/651044?",
       "url" : "https:\/\/api.github.com\/orgs\/elegantchaos",
       "gravatar_id" : ""
-    },
-    "created_at" : "2020-05-26T15:23:07Z",
-    "public" : true,
-    "repo" : {
-      "id" : 267077251,
-      "name" : "elegantchaos\/_publicTest",
-      "url" : "https:\/\/api.github.com\/repos\/elegantchaos\/_publicTest"
     },
     "payload" : {
       "before" : "119bc1f6d72e4b007f6afd1915a3dc28dd0e4bb7",
@@ -126,20 +135,14 @@
         }
       ]
     },
-    "type" : "PushEvent",
-    "id" : "12442655277",
-    "actor" : {
-      "display_login" : "samdeane",
-      "id" : 206306,
-      "login" : "samdeane",
-      "avatar_url" : "https:\/\/avatars.githubusercontent.com\/u\/206306?",
-      "url" : "https:\/\/api.github.com\/users\/samdeane",
-      "gravatar_id" : ""
-    }
+    "type" : "PushEvent"
   },
   {
-    "created_at" : "2020-05-26T15:13:13Z",
-    "id" : "12442538714",
+    "repo" : {
+      "id" : 267077251,
+      "name" : "elegantchaos\/_publicTest",
+      "url" : "https:\/\/api.github.com\/repos\/elegantchaos\/_publicTest"
+    },
     "actor" : {
       "display_login" : "samdeane",
       "id" : 206306,
@@ -149,7 +152,8 @@
       "gravatar_id" : ""
     },
     "public" : true,
-    "type" : "CreateEvent",
+    "id" : "12442538714",
+    "created_at" : "2020-05-26T15:13:13Z",
     "org" : {
       "id" : 651044,
       "login" : "elegantchaos",
@@ -164,13 +168,25 @@
       "ref_type" : "branch",
       "ref" : "master"
     },
+    "type" : "CreateEvent"
+  },
+  {
     "repo" : {
       "id" : 267077251,
       "name" : "elegantchaos\/_publicTest",
       "url" : "https:\/\/api.github.com\/repos\/elegantchaos\/_publicTest"
-    }
-  },
-  {
+    },
+    "actor" : {
+      "display_login" : "samdeane",
+      "id" : 206306,
+      "login" : "samdeane",
+      "avatar_url" : "https:\/\/avatars.githubusercontent.com\/u\/206306?",
+      "url" : "https:\/\/api.github.com\/users\/samdeane",
+      "gravatar_id" : ""
+    },
+    "public" : true,
+    "id" : "12442538313",
+    "created_at" : "2020-05-26T15:13:11Z",
     "org" : {
       "id" : 651044,
       "login" : "elegantchaos",
@@ -185,22 +201,6 @@
       "ref_type" : "repository",
       "ref" : null
     },
-    "type" : "CreateEvent",
-    "id" : "12442538313",
-    "actor" : {
-      "display_login" : "samdeane",
-      "id" : 206306,
-      "login" : "samdeane",
-      "avatar_url" : "https:\/\/avatars.githubusercontent.com\/u\/206306?",
-      "url" : "https:\/\/api.github.com\/users\/samdeane",
-      "gravatar_id" : ""
-    },
-    "created_at" : "2020-05-26T15:13:11Z",
-    "repo" : {
-      "id" : 267077251,
-      "name" : "elegantchaos\/_publicTest",
-      "url" : "https:\/\/api.github.com\/repos\/elegantchaos\/_publicTest"
-    },
-    "public" : true
+    "type" : "CreateEvent"
   }
 ]

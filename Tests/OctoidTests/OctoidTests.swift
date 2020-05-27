@@ -4,7 +4,7 @@ import XCTestExtensions
 @testable import Octoid
 
 final class OctoidTests: XCTestCase {
-    func testEvents() {
+    func testEventDecoding() {
         let data = self.testData(named: "events", withExtension: "json")
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
@@ -18,5 +18,4 @@ final class OctoidTests: XCTestCase {
         XCTAssertEqual(event.type, "PushEvent")
         XCTAssertEqual(event.created_at, formatter.date(from: "2020-05-26T19:06:39Z"))
     }
-    
 }
