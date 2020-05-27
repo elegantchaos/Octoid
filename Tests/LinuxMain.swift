@@ -3,5 +3,6 @@ import XCTest
 import OctoidTests
 
 var tests = [XCTestCaseEntry]()
-tests += OctoidTests.allTests()
+tests += OctoidTests.__allTests()
+
 XCTMain(tests)
