@@ -8,11 +8,23 @@ import Logger
 
 public let sessionChannel = Channel("com.elegantchaos.octoid.session")
 
+public enum ResponseState {
+    case updated
+    case unchanged
+    case other
+}
+
+public protocol ResponseProcessor {
+    associatedtype ResponseType: Decodable
+    
+    func query(for session: Session) -> Query
+    func process(state: ResponseState, response: ResponseType, in session: Session) -> Bool
+}
+
 open class Session {
     public let session = URLSession.shared
     public let repo: Repository
     public let context: Context
-    public var lastEvent: Date
     
     public var eventsQuery = Query(name: "events", response: Events.self) { repo in return  "repos/\(repo.fullName)/events" }
     public var workflowQuery = Query(name: "runs", response: WorkflowRuns.self) { repo in return  "repos/\(repo.fullName)/actions/workflows/Tests.yml/runs" }
@@ -20,24 +32,20 @@ open class Session {
     public init(repo: Repository, context: Context) {
         self.repo = repo
         self.context = context
-        self.lastEvent = Date(timeIntervalSinceReferenceDate: 0)
     }
         
-    public enum ResponseState {
-        case updated
-        case unchanged
-        case other
-    }
     
-    public func schedule<ResponseType>(query: Query, for deadline: DispatchTime, tag: String? = nil, repeatingEvery: Int? = nil, completionHandler: @escaping (ResponseState, ResponseType) -> Bool )  where ResponseType: Decodable {
+    public func schedule<Processor>(processor: Processor, for deadline: DispatchTime, tag: String? = nil, repeatingEvery: Int? = nil)  where Processor: ResponseProcessor {
+        let query = processor.query(for: self)
         let distance = deadline.distance(to: DispatchTime.now())
         sessionChannel.log("Scheduled \(query.name) in \(distance)")
         DispatchQueue.global(qos: .background).asyncAfter(deadline: deadline) {
-            self.sendRequest(query: query, repeatingEvery: repeatingEvery, completionHandler: completionHandler)
+            self.sendRequest(processor: processor, repeatingEvery: repeatingEvery)
         }
     }
 
-    func sendRequest<ResponseType>(query: Query, tag: String? = nil, repeatingEvery: Int? = nil, completionHandler: @escaping (ResponseState, ResponseType) -> Bool ) where ResponseType: Decodable {
+    func sendRequest<Processor>(processor: Processor, tag: String? = nil, repeatingEvery: Int? = nil) where Processor: ResponseProcessor {
+        let query = processor.query(for: self)
         var request = query.request(with: context, repo: repo)
         if let tag = tag {
             request.addValue(tag, forHTTPHeaderField: "If-None-Match")
@@ -81,10 +89,10 @@ open class Session {
                     do {
                         let decoder = JSONDecoder()
                         decoder.dateDecodingStrategy = .iso8601
-                        let decoded: ResponseType = try decoder.decode(ResponseType.self, from: data)
-                        shouldRepeat = shouldRepeat || completionHandler(state, decoded)
+                        let decoded: Processor.ResponseType = try decoder.decode(Processor.ResponseType.self, from: data)
+                        shouldRepeat = shouldRepeat || processor.process(state: state, response: decoded, in: self)
                     } catch {
-                        sessionChannel.log("Error thrown processing \(query.name) for \(ResponseType.self) \(self.repo)\n\(error)\n\(data.prettyPrinted)")
+                        sessionChannel.log("Error thrown processing \(query.name) for \(Processor.ResponseType.self) \(self.repo)\n\(error)\n\(data.prettyPrinted)")
                     }
                 }
             } else {
@@ -95,7 +103,7 @@ open class Session {
             }
             
             if shouldRepeat {
-                self.schedule(query: query, for: DispatchTime.now().advanced(by: DispatchTimeInterval.seconds(repeatInterval)), tag: updatedTag, repeatingEvery: repeatingEvery, completionHandler: completionHandler)
+                self.schedule(processor: processor, for: DispatchTime.now().advanced(by: DispatchTimeInterval.seconds(repeatInterval)), tag: updatedTag, repeatingEvery: repeatingEvery)
             }
         }
         
