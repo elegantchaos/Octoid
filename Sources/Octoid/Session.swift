@@ -32,7 +32,7 @@ open class Session {
     }
     
     
-    public func schedule<Processor>(processor: Processor, for deadline: DispatchTime, tag: String? = nil, repeatingEvery: Int? = nil) where Processor: ResponseProcessor {
+    public func schedule<Processor>(processor: Processor, for deadline: DispatchTime, tag: String? = nil, repeatingEvery: Int? = nil) where Processor: Processor {
         let query = processor.query(for: self)
         let distance = deadline.distance(to: DispatchTime.now())
         sessionChannel.log("Scheduled \(query.name) in \(distance)")
@@ -44,11 +44,11 @@ open class Session {
     enum Errors: Error {
         case badResponse
         case missingData
-        case apiError(GithubError)
+        case apiError(Failure)
         case unexpectedResponse(Int)
     }
     
-    func sendRequest<Processor>(processor: Processor, tag: String? = nil, repeatingEvery: Int? = nil) where Processor: ResponseProcessor {
+    func sendRequest<Processor>(processor: Processor, tag: String? = nil, repeatingEvery: Int? = nil) where Processor: Processor {
         let query = processor.query(for: self)
         var request = query.request(with: context, repo: target)
         if let tag = tag {
@@ -88,6 +88,10 @@ open class Session {
             
             if shouldRepeat {
                 self.schedule(processor: processor, for: DispatchTime.now().advanced(by: DispatchTimeInterval.seconds(repeatInterval)), tag: updatedTag, repeatingEvery: repeatingEvery)
+            }
+            
+            DispatchQueue.main.async {
+                self.tasks = self.tasks.filter { task in return task.state == .running }
             }
         }
         
