@@ -11,3 +11,11 @@ public struct Actor: Codable {
     let url: String
     let gravatar_id: String
 }
+
+public struct Org: Codable {
+    let id: Int
+    let login: String
+    let avatar_url: String
+    let url: String
+    let gravatar_id: String
+}

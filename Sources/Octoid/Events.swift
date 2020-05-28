@@ -10,10 +10,41 @@ public typealias Events = [Event]
 extension Events: QueryResponse {
 }
 
+public struct Author: Codable {
+    let name: String
+    let email: String
+}
+
+public struct Commit: Codable {
+    let author: Author
+    let message: String
+    let url: String
+    let distinct: Bool
+    let sha: String
+}
+
+public struct EventPayload: Codable {
+    let ref: String?
+    let ref_type: String?
+    let description: String?
+    let master_branch: String?
+    let pusher_type: String?
+    let before: String?
+    let push_id: Int?
+    let size: Int?
+    let distinct_size: Int?
+    let head: String?
+    let commits: [Commit]?
+}
+
+
 public struct Event: Codable {
     public let id: String
     public let type: String
     public let created_at: Date
     public let `public`: Bool
     public let actor: Actor
+    public let org: Org
+    public let payload: EventPayload
 }
+
