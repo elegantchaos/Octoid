@@ -30,7 +30,8 @@ final class OctoidTests: XCTestCase {
     func testWorkflowDecoding() {
         let data = self.testData(named: "runs", withExtension: "json")
         let decoder = JSONDecoder()
-        
+        decoder.dateDecodingStrategy = .iso8601
+
         let runs = try! decoder.decode(WorkflowRuns.self, from: data)
         XCTAssertEqual(runs.total_count, 1)
         

@@ -23,4 +23,5 @@ public struct WorkflowRun: Codable {
     let run_number: Int
     public let status: String
     public let conclusion: String?
+    public let head_commit: HeadCommit
 }
