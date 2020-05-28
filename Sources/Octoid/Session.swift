@@ -53,7 +53,7 @@ open class Session {
         
         var updatedTag = tag
         var shouldRepeat = repeatingEvery != nil
-        var repeatInterval = repeatingEvery ?? 0
+        var repeatInterval = repeatingEvery ?? 30
         let task = session.dataTask(with: request) { data, response, error in
             networkingChannel.log("got response for \(self.repo)")
             if let error = error {
@@ -90,7 +90,7 @@ open class Session {
                         let decoder = JSONDecoder()
                         decoder.dateDecodingStrategy = .iso8601
                         let decoded: Processor.ResponseType = try decoder.decode(Processor.ResponseType.self, from: data)
-                        shouldRepeat = shouldRepeat || processor.process(state: state, response: decoded, in: self)
+                        shouldRepeat = processor.process(state: state, response: decoded, in: self) || shouldRepeat
                     } catch {
                         sessionChannel.log("Error thrown processing \(query.name) for \(Processor.ResponseType.self) \(self.repo)\n\(error)\n\(data.prettyPrinted)")
                     }

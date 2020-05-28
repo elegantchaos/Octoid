@@ -14,4 +14,6 @@ public struct Event: Codable {
     public let id: String
     public let type: String
     public let created_at: Date
+    public let `public`: Bool
+    public let actor: Actor
 }

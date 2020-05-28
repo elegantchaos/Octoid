@@ -17,6 +17,14 @@ final class OctoidTests: XCTestCase {
         XCTAssertEqual(event.id, "12444868583")
         XCTAssertEqual(event.type, "PushEvent")
         XCTAssertEqual(event.created_at, formatter.date(from: "2020-05-26T19:06:39Z"))
+        
+        let actor = event.actor
+        XCTAssertEqual(actor.display_login, "samdeane")
+        XCTAssertEqual(actor.id, 206306)
+        XCTAssertEqual(actor.login, "samdeane")
+        XCTAssertEqual(actor.avatar_url, "https://avatars.githubusercontent.com/u/206306?")
+        XCTAssertEqual(actor.url, "https://api.github.com/users/samdeane")
+        XCTAssertEqual(actor.gravatar_id, "")
     }
     
     func testWorkflowDecoding() {
