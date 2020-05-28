@@ -3,20 +3,22 @@
 //  All code (c) 2020 - present day, Elegant Chaos Limited.
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
-public struct Repository {
+public struct Target {
     public let name: String
     public let owner: String
+    public let workflow: String
     
-    public init(name: String, owner: String) {
+    public init(name: String, owner: String, workflow: String) {
         self.name = name
         self.owner = owner
+        self.workflow = workflow
     }
     
-    public var fullName: String { return "\(owner)/\(name)" }
+    public var fullName: String { return "\(owner)/\(name):\(workflow)" }
 
 }
 
-extension Repository: CustomStringConvertible {
+extension Target: CustomStringConvertible {
     public var description: String {
         return fullName
     }

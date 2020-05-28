@@ -9,35 +9,30 @@ import Logger
 public let sessionChannel = Channel("com.elegantchaos.octoid.session")
 
 public enum ResponseState {
-    case updated(Int)
-    case unchanged(Int)
+    case updated
+    case unchanged
+    case error
     case other
 }
-
-public protocol ResponseProcessor {
-    associatedtype ResponseType: Decodable
-    
-    func query(for session: Session) -> Query
-    func process(state: ResponseState, response: ResponseType, in session: Session) -> Bool
-}
-
 open class Session {
     public let session = URLSession.shared
-    public let repo: Repository
+    public let target: Target
     public let context: Context
-    
+    public let defaultInterval: Int
+
     public var eventsQuery = Query(name: "events", response: Events.self) { repo in return  "repos/\(repo.fullName)/events" }
-    public var workflowQuery = Query(name: "runs", response: WorkflowRuns.self) { repo in return  "repos/\(repo.fullName)/actions/workflows/Tests.yml/runs" }
+    public var workflowQuery = Query(name: "runs", response: WorkflowRuns.self) { repo in return  "repos/\(repo.fullName)/actions/workflows/\(repo.workflow).yml/runs" }
     
     var tasks: [URLSessionDataTask] = []
     
-    public init(repo: Repository, context: Context) {
-        self.repo = repo
+    public init(repo: Target, context: Context, defaultInterval: Int = 60) {
+        self.target = repo
         self.context = context
+        self.defaultInterval = defaultInterval
     }
-        
     
-    public func schedule<Processor>(processor: Processor, for deadline: DispatchTime, tag: String? = nil, repeatingEvery: Int? = nil)  where Processor: ResponseProcessor {
+    
+    public func schedule<Processor>(processor: Processor, for deadline: DispatchTime, tag: String? = nil, repeatingEvery: Int? = nil) where Processor: ResponseProcessor {
         let query = processor.query(for: self)
         let distance = deadline.distance(to: DispatchTime.now())
         sessionChannel.log("Scheduled \(query.name) in \(distance)")
@@ -45,63 +40,50 @@ open class Session {
             self.sendRequest(processor: processor, repeatingEvery: repeatingEvery)
         }
     }
-
+        
+    enum Errors: Error {
+        case badResponse
+        case missingData
+        case apiError(GithubError)
+        case unexpectedResponse(Int)
+    }
+    
     func sendRequest<Processor>(processor: Processor, tag: String? = nil, repeatingEvery: Int? = nil) where Processor: ResponseProcessor {
         let query = processor.query(for: self)
-        var request = query.request(with: context, repo: repo)
+        var request = query.request(with: context, repo: target)
         if let tag = tag {
             request.addValue(tag, forHTTPHeaderField: "If-None-Match")
         }
         
-        var updatedTag = tag
-        var shouldRepeat = repeatingEvery != nil
-        var repeatInterval = repeatingEvery ?? 30
         let task = session.dataTask(with: request) { data, response, error in
-            networkingChannel.log("got response for \(self.repo)")
+            var updatedTag = tag
+            var shouldRepeat = repeatingEvery != nil
+            var repeatInterval = repeatingEvery ?? self.defaultInterval
+
+            networkingChannel.log("got response for \(self.target)")
             if let error = error {
                 networkingChannel.log(error)
             }
             
-            if let response = response as? HTTPURLResponse,
-                let remaining = response.value(forHTTPHeaderField: "X-RateLimit-Remaining"),
-                let tag = response.value(forHTTPHeaderField: "Etag"),
-                let data = data {
-                networkingChannel.log("rate limit remaining: \(remaining)")
+            do {
+                guard let response = response as? HTTPURLResponse else { throw Errors.badResponse }
+                guard let data = data else { throw Errors.missingData }
+
+                if let remaining = response.value(forHTTPHeaderField: "X-RateLimit-Remaining"), let tag = response.value(forHTTPHeaderField: "Etag") {
+                    updatedTag = tag
+                    networkingChannel.log("rate limit remaining: \(remaining)")
+                }
+                
                 if let seconds = response.value(forHTTPHeaderField: "X-Poll-Interval").asInt {
                     repeatInterval = max(repeatInterval, seconds)
+                    networkingChannel.log("repeat interval \(repeatInterval) (capped at \(seconds))")
                 }
-                
-                var state: ResponseState?
-                switch response.statusCode {
-                    case 200:
-                        networkingChannel.log("got updates")
-                        state = .updated(response.statusCode)
-                    
-                    case 304:
-                        networkingChannel.log("no changes")
-                        state = .unchanged(response.statusCode)
-                    
-                    default:
-                        networkingChannel.log("Unexpected response: \(response)")
-                        state = nil
-                }
-                
-                updatedTag = tag
-                if let state = state {
-                    do {
-                        let decoder = JSONDecoder()
-                        decoder.dateDecodingStrategy = .iso8601
-                        let decoded: Processor.ResponseType = try decoder.decode(Processor.ResponseType.self, from: data)
-                        shouldRepeat = processor.process(state: state, response: decoded, in: self) || shouldRepeat
-                    } catch {
-                        sessionChannel.log("Error thrown processing \(query.name) for \(Processor.ResponseType.self) \(self.repo)\n\(error)\n\(data.prettyPrinted)")
-                    }
-                }
-            } else {
-                print("Couldn't decode response")
-                if let data = data, let string = String(data: data, encoding: .utf8) {
-                    print(string)
-                }
+
+                shouldRepeat = try processor.decode(response: response, data: data, in: self) || shouldRepeat
+
+            } catch {
+                sessionChannel.log("Error thrown:\n- query: \(query.name)\n- target: \(self.target)\n- payload: \(Processor.Payload.self)\n- error: \(error)\n")
+                if let data = data { sessionChannel.log("- data: \(data.prettyPrinted)\n\n") }
             }
             
             if shouldRepeat {
@@ -110,7 +92,7 @@ open class Session {
         }
         
         DispatchQueue.main.async {
-            sessionChannel.log("Sending \(query.name) for \(self.repo) (\(request))")
+            sessionChannel.log("Sending \(query.name) for \(self.target) (\(request))")
             self.tasks.append(task)
             task.resume()
         }

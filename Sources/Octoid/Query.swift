@@ -12,9 +12,9 @@ protocol QueryResponse: Codable {
 public struct Query {
     let name: String
     let response: QueryResponse.Type
-    let query: (Repository) -> String
+    let query: (Target) -> String
     
-    func request(with context: Context, repo: Repository) -> URLRequest {
+    func request(with context: Context, repo: Target) -> URLRequest {
         let authorization = "bearer \(context.token)"
         var request = URLRequest(url: context.endpoint.appendingPathComponent(query(repo)))
         request.addValue(authorization, forHTTPHeaderField: "Authorization")
