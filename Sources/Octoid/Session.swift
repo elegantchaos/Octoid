@@ -9,8 +9,8 @@ import Logger
 public let sessionChannel = Channel("com.elegantchaos.octoid.session")
 
 public enum ResponseState {
-    case updated
-    case unchanged
+    case updated(Int)
+    case unchanged(Int)
     case other
 }
 
@@ -28,6 +28,8 @@ open class Session {
     
     public var eventsQuery = Query(name: "events", response: Events.self) { repo in return  "repos/\(repo.fullName)/events" }
     public var workflowQuery = Query(name: "runs", response: WorkflowRuns.self) { repo in return  "repos/\(repo.fullName)/actions/workflows/Tests.yml/runs" }
+    
+    var tasks: [URLSessionDataTask] = []
     
     public init(repo: Repository, context: Context) {
         self.repo = repo
@@ -60,7 +62,6 @@ open class Session {
                 networkingChannel.log(error)
             }
             
-            var state: ResponseState
             if let response = response as? HTTPURLResponse,
                 let remaining = response.value(forHTTPHeaderField: "X-RateLimit-Remaining"),
                 let tag = response.value(forHTTPHeaderField: "Etag"),
@@ -70,22 +71,23 @@ open class Session {
                     repeatInterval = max(repeatInterval, seconds)
                 }
                 
+                var state: ResponseState?
                 switch response.statusCode {
                     case 200:
                         networkingChannel.log("got updates")
-                        state = .updated
+                        state = .updated(response.statusCode)
                     
                     case 304:
                         networkingChannel.log("no changes")
-                        state = .unchanged
+                        state = .unchanged(response.statusCode)
                     
                     default:
                         networkingChannel.log("Unexpected response: \(response)")
-                        state = .other
+                        state = nil
                 }
                 
                 updatedTag = tag
-                if state != .other {
+                if let state = state {
                     do {
                         let decoder = JSONDecoder()
                         decoder.dateDecodingStrategy = .iso8601
@@ -107,8 +109,11 @@ open class Session {
             }
         }
         
-        sessionChannel.log("Sending \(query.name) for \(repo) (\(request))")
-        task.resume()
+        DispatchQueue.main.async {
+            sessionChannel.log("Sending \(query.name) for \(self.repo) (\(request))")
+            self.tasks.append(task)
+            task.resume()
+        }
     }
 }
 
