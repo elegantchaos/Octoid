@@ -14,12 +14,16 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/elegantchaos/Logger.git", from: "1.5.5"),
+        .package(url: "https://github.com/elegantchaos/JSONSession.git", from: "1.0.2"),
         .package(url: "https://github.com/elegantchaos/XCTestExtensions.git", from: "1.1.1"),
     ],
     targets: [
         .target(
             name: "Octoid",
-            dependencies: ["Logger"]),
+            dependencies: [
+                "Logger",
+                "JSONSession"
+            ]),
         .testTarget(
             name: "OctoidTests",
             dependencies: ["Octoid", "XCTestExtensions"]),

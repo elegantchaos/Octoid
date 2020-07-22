@@ -4,12 +4,23 @@
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
 import Foundation
+import JSONSession
 
 public typealias Events = [Event]
 
-extension Events: QueryResponse {
-}
+public struct EventsResource: ResourceResolver {
+    public let name: String
+    public let owner: String
+    
+    public init(name: String, owner: String) {
+        self.name = name
+        self.owner = owner
+    }
 
+    public func path(in session: JSONSession.Session) -> String {
+        return "repos/\(owner)/\(name)/events"
+    }
+}
 
 public struct EventPayload: Codable {
     let ref: String?

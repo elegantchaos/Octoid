@@ -4,6 +4,7 @@
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
 import Foundation
+import JSONSession
 
 public struct WorkflowRuns: Codable {
     let total_count: Int
@@ -15,9 +16,6 @@ public struct WorkflowRuns: Codable {
     }
 }
 
-extension WorkflowRuns: QueryResponse {
-}
-
 public struct WorkflowRun: Codable {
     let id: Int
     let run_number: Int
@@ -25,3 +23,20 @@ public struct WorkflowRun: Codable {
     public let conclusion: String?
     public let head_commit: HeadCommit
 }
+
+public struct WorkflowResource: ResourceResolver {
+    public let name: String
+    public let owner: String
+    public let workflow: String
+    
+    public init(name: String, owner: String, workflow: String = "Tests") {
+        self.name = name
+        self.owner = owner
+        self.workflow = workflow
+    }
+
+    public func path(in session: JSONSession.Session) -> String {
+        return "repos/\(owner)/\(name)/actions/workflows/\(workflow).yml/runs"
+    }
+}
+
