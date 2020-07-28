@@ -5,6 +5,7 @@
 
 import Foundation
 import JSONSession
+import CollectionExtensions
 
 public struct WorkflowRuns: Codable {
     let total_count: Int
@@ -40,3 +41,8 @@ public struct WorkflowResource: ResourceResolver {
     }
 }
 
+extension WorkflowResource: CustomStringConvertible {
+    public var description: String {
+        return "\(owner)/\(name) \(workflow).yml"
+    }
+}

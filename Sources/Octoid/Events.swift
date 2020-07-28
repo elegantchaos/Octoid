@@ -22,6 +22,12 @@ public struct EventsResource: ResourceResolver {
     }
 }
 
+extension EventsResource: CustomStringConvertible {
+    public var description: String {
+        return "\(owner)/\(name)"
+    }
+}
+
 public struct EventPayload: Codable {
     let ref: String?
     let ref_type: String?
