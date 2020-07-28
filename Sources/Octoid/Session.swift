@@ -3,9 +3,13 @@
 //  All code (c) 2020 - present day, Elegant Chaos Limited.
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
+import DataFetcher
 import Foundation
 import JSONSession
-import DataFetcher
+
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 
 open class Session: JSONSession.Session {
     public init(token: String, defaultInterval: TimeInterval = 60.0, fetcher: DataFetcher = URLSession.shared) {

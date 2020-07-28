@@ -5,6 +5,10 @@
 
 import Foundation
 
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
+
 func processData(_ data: Data?, storeReply: Bool = false) {
     if let data = data, let parsed = try? JSONSerialization.jsonObject(with: data, options: []), let dict = parsed as? JSONDictionary {
         processResponse(dict)
