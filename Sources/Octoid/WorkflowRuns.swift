@@ -13,7 +13,7 @@ public struct WorkflowRuns: Codable {
     
     public var latestRun: WorkflowRun {
         let sorted = workflow_runs.sorted(by: \WorkflowRun.run_number)
-        return sorted[total_count - 1]
+        return sorted.last!
     }
 }
 
