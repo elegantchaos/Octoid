@@ -18,7 +18,7 @@ extension Message: CustomStringConvertible {
 }
 
 public protocol MessageReceiver {
-    func received(_ message: Message, response: HTTPURLResponse)
+    func received(_ message: Message, response: HTTPURLResponse, for request: Request) -> RepeatStatus
 }
 
 public struct MessageProcessor<S>: Processor where S: Session, S: MessageReceiver {
@@ -33,7 +33,6 @@ public struct MessageProcessor<S>: Processor where S: Session, S: MessageReceive
     }
     
     public func process(_ message: Message, response: HTTPURLResponse, for request: Request, in session: S) -> RepeatStatus {
-        session.received(message, response: response)
-        return .inherited
+        return session.received(message, response: response, for: request)
     }
 }
