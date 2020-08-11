@@ -6,6 +6,10 @@
 import Foundation
 import JSONSession
 
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
+
 public struct Message: Codable {
     public let message: String
     public let documentation_url: String
