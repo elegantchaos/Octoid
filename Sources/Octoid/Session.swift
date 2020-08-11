@@ -6,6 +6,9 @@
 import DataFetcher
 import Foundation
 import JSONSession
+import Logger
+
+public let octoidChannel = Channel("com.elegantchaos.Octoid")
 
 #if canImport(FoundationNetworking)
 import FoundationNetworking

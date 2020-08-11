@@ -26,9 +26,6 @@ public protocol MessageReceiver {
 }
 
 public struct MessageProcessor<S>: Processor where S: Session, S: MessageReceiver {
-    public typealias Payload = Message
-    public typealias SessionType = S
-    
     public let name = "message"
     public let codes = [400, 401, 403, 404]
     public var processors: [ProcessorBase] { return [self] }
@@ -37,6 +34,7 @@ public struct MessageProcessor<S>: Processor where S: Session, S: MessageReceive
     }
     
     public func process(_ message: Message, response: HTTPURLResponse, for request: Request, in session: S) -> RepeatStatus {
+        octoidChannel.log("\(request.resource) \(message)")
         return session.received(message, response: response, for: request)
     }
 }
