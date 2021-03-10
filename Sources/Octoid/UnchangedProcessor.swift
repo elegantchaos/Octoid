@@ -9,9 +9,7 @@ import JSONSession
 public struct UnchangedProcessor: ProcessorBase {
     public let name = "unchanged"
     public let codes = [304]
-
-    public init() {
-    }
+    public var processors: [ProcessorBase] { return [self] }
     
     public func decode(data: Data, with decoder: JSONDecoder) throws -> Decodable {
         return ""
