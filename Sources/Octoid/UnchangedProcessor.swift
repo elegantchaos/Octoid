@@ -11,6 +11,9 @@ public struct UnchangedProcessor: ProcessorBase {
     public let codes = [304]
     public var processors: [ProcessorBase] { return [self] }
     
+    public init() {
+    }
+    
     public func decode(data: Data, with decoder: JSONDecoder) throws -> Decodable {
         return ""
     }
