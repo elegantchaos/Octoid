@@ -29,7 +29,9 @@ let package = Package(
         .testTarget(
             name: "OctoidTests",
             dependencies: ["Octoid", "XCTestExtensions"],
-            resources: [.copy("Resources")]
+            resources: [
+                .process("Resources")
+            ]
         ),
     ]
 )
