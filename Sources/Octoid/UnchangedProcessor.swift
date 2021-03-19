@@ -6,6 +6,10 @@
 import Foundation
 import JSONSession
 
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
+
 public struct UnchangedProcessor: ProcessorBase {
     public let name = "unchanged"
     public let codes = [304]
