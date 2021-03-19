@@ -13,8 +13,8 @@ let package = Package(
             targets: ["Octoid"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/elegantchaos/CollectionExtensions.git", from: "1.1.0"),
-        .package(url: "https://github.com/elegantchaos/Logger.git", from: "1.5.5"),
+        .package(url: "https://github.com/elegantchaos/CollectionExtensions.git", from: "1.1.1"),
+        .package(url: "https://github.com/elegantchaos/Logger.git", from: "1.6.0"),
         .package(url: "https://github.com/elegantchaos/JSONSession.git", from: "1.1.0"),
         .package(url: "https://github.com/elegantchaos/XCTestExtensions.git", from: "1.3.2"),
     ],
