@@ -7,6 +7,7 @@ extension OctoidTests {
     // to regenerate.
     static let __allTests__OctoidTests = [
         ("testEventDecoding", testEventDecoding),
+        ("testWorkflowDecoding", testWorkflowDecoding),
     ]
 }
 
