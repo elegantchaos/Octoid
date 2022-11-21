@@ -11,6 +11,10 @@ public struct WorkflowRuns: Codable {
     let total_count: Int
     let workflow_runs: [WorkflowRun]
     
+    public var isEmpty: Bool {
+        workflow_runs.isEmpty
+    }
+    
     public var latestRun: WorkflowRun {
         let sorted = workflow_runs.sorted(by: \WorkflowRun.run_number)
         return sorted.last!
