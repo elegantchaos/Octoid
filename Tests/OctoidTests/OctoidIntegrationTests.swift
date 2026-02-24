@@ -6,7 +6,7 @@ import JSONSession
 
 @Test
 func liveEventsEndpointDecodesEvents() async throws {
-    guard let configuration = IntegrationTestSupport.configuration() else {
+    guard let configuration = await liveConfiguration(for: #function) else {
         return
     }
 
@@ -36,7 +36,7 @@ func liveEventsEndpointDecodesEvents() async throws {
 
 @Test
 func liveWorkflowRunsEndpointDecodesRuns() async throws {
-    guard let configuration = IntegrationTestSupport.configuration() else {
+    guard let configuration = await liveConfiguration(for: #function) else {
         return
     }
 
@@ -66,7 +66,7 @@ func liveWorkflowRunsEndpointDecodesRuns() async throws {
 
 @Test
 func liveMissingWorkflowReturnsNotFoundMessage() async throws {
-    guard let configuration = IntegrationTestSupport.configuration() else {
+    guard let configuration = await liveConfiguration(for: #function) else {
         return
     }
 
@@ -85,6 +85,16 @@ func liveMissingWorkflowReturnsNotFoundMessage() async throws {
 
     let message = try await session.awaitMessage()
     #expect(message.message == "Not Found")
+}
+
+private func liveConfiguration(for testName: String) async -> IntegrationConfiguration? {
+    switch await IntegrationTestSupport.configurationResult() {
+    case .ready(let configuration):
+        return configuration
+    case .skipped(let reason):
+        print("[OctoidIntegration] \(testName) skipped: \(reason)")
+        return nil
+    }
 }
 
 private struct RepoFixture {

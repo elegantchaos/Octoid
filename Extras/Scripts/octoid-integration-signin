@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Runs Octoid integration tests with GitHub device sign-in enabled.
+# Interactive only: no arguments or environment overrides.
+
+if [[ "$#" -gt 0 ]]; then
+  echo "[OctoidIntegration] This script takes no arguments."
+  exit 1
+fi
+
+DEFAULT_USER="samdeane"
+DEFAULT_SERVER="api.github.com"
+FILTER="liveEventsEndpointDecodesEvents"
+
+echo "[OctoidIntegration] Starting GitHub device sign-in via swift test..."
+read -r -p "[OctoidIntegration] GitHub user [${DEFAULT_USER}]: " USER_INPUT
+USER_INPUT="${USER_INPUT:-$DEFAULT_USER}"
+
+read -r -p "[OctoidIntegration] API server [${DEFAULT_SERVER}]: " SERVER_INPUT
+SERVER_INPUT="${SERVER_INPUT:-$DEFAULT_SERVER}"
+
+read -r -p "[OctoidIntegration] Enter GitHub OAuth client id: " CLIENT_ID
+
+if [[ -z "${CLIENT_ID}" ]]; then
+  echo "[OctoidIntegration] Error: client id is required."
+  exit 1
+fi
+
+echo "[OctoidIntegration] User: ${USER_INPUT}"
+echo "[OctoidIntegration] Server: ${SERVER_INPUT}"
+echo "[OctoidIntegration] Client ID provided."
+echo "[OctoidIntegration] Filter: ${FILTER}"
+
+env \
+  OCTOID_GITHUB_DEVICE_SIGNIN=1 \
+  OCTOID_GITHUB_USER="${USER_INPUT}" \
+  OCTOID_GITHUB_SERVER="${SERVER_INPUT}" \
+  OCTOID_GITHUB_CLIENT_ID="${CLIENT_ID}" \
+  swift test --filter "${FILTER}"
