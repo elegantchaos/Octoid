@@ -1,4 +1,4 @@
-// swift-tools-version:5.6
+// swift-tools-version:6.0
 
 import PackageDescription
 
@@ -16,7 +16,6 @@ let package = Package(
         .package(url: "https://github.com/elegantchaos/CollectionExtensions.git", from: "1.1.1"),
         .package(url: "https://github.com/elegantchaos/Logger.git", from: "1.6.0"),
         .package(url: "https://github.com/elegantchaos/JSONSession.git", from: "1.1.1"),
-        .package(url: "https://github.com/elegantchaos/XCTestExtensions.git", from: "1.3.2"),
     ],
     targets: [
         .target(
@@ -28,10 +27,11 @@ let package = Package(
             ]),
         .testTarget(
             name: "OctoidTests",
-            dependencies: ["Octoid", "XCTestExtensions"],
+            dependencies: ["Octoid"],
             resources: [
                 .process("Resources")
             ]
         ),
-    ]
+    ],
+    swiftLanguageModes: [.v5]
 )

@@ -20,4 +20,23 @@ Swift module with just enough Github API support to do what I need.
 
 I'm not even slightly pretending that this is good enough for general purpose use.
 
+## Integration Tests
 
+Live GitHub integration tests are opt-in and read the same token entry that ActionStatus uses on macOS.
+
+- Keychain service defaults to `api.github.com`.
+- Keychain account is the GitHub username from ActionStatus defaults (`GithubUser` in `com.elegantchaos.actionstatus`).
+
+Optional overrides:
+
+- `OCTOID_GITHUB_USER` (override username if ActionStatus defaults are unavailable)
+- `OCTOID_GITHUB_SERVER` (default: `api.github.com`)
+- `OCTOID_TEST_OWNER` (default: `elegantchaos`)
+- `OCTOID_TEST_REPO` (default: `Octoid`)
+- `OCTOID_TEST_WORKFLOW` (default: `Tests`)
+
+Run tests with:
+
+```bash
+swift test
+```
