@@ -13,7 +13,6 @@ let package = Package(
             targets: ["Octoid"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/elegantchaos/CollectionExtensions.git", from: "1.1.1"),
         .package(url: "https://github.com/elegantchaos/Logger.git", from: "1.6.0"),
         .package(url: "https://github.com/elegantchaos/JSONSession.git", from: "1.1.1"),
     ],
@@ -21,7 +20,6 @@ let package = Package(
         .target(
             name: "Octoid",
             dependencies: [
-                "CollectionExtensions",
                 "Logger",
                 "JSONSession"
             ]),

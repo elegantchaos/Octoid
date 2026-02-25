@@ -5,7 +5,6 @@
 
 import Foundation
 import JSONSession
-import CollectionExtensions
 
 /// GitHub workflow runs payload for a repository or specific workflow.
 public struct WorkflowRuns: Codable {
@@ -21,8 +20,10 @@ public struct WorkflowRuns: Codable {
     
     /// Latest run by `run_number`.
     public var latestRun: WorkflowRun {
-        let sorted = workflow_runs.sorted(by: \WorkflowRun.run_number)
-        return sorted.last!
+        guard let latest = workflow_runs.max(by: { $0.run_number < $1.run_number }) else {
+            preconditionFailure("Attempted to read latestRun from an empty workflow run list.")
+        }
+        return latest
     }
 }
 

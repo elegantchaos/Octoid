@@ -1,5 +1,5 @@
 {
-  "originHash" : "f5af702a1c50ceb48f856ba321a6dedfef4de2a9cea249a6e0b7ae9d68f1bd52",
+  "originHash" : "bfb94ad9bf74addb9774ce0091e796be7f2a8ba1c66b6a547f176e3c38b7e17b",
   "pins" : [
     {
       "identity" : "coercion",
@@ -8,15 +8,6 @@
       "state" : {
         "revision" : "0481b6c80b0d50cb3c532d8bd87101140a20bade",
         "version" : "1.1.1"
-      }
-    },
-    {
-      "identity" : "collectionextensions",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/elegantchaos/CollectionExtensions.git",
-      "state" : {
-        "revision" : "d03df03b3f61a3db72793088325321351d4c07bf",
-        "version" : "1.1.2"
       }
     },
     {
