@@ -5,4 +5,5 @@
 
 import Foundation
 
+/// A generic dictionary representation used for loosely typed JSON payloads.
 public typealias JSONDictionary = [String:Any]

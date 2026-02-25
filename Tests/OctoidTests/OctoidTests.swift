@@ -155,3 +155,35 @@ func workflowsDecoding() throws {
     #expect(workflow.path == ".github/workflows/tests.yml")
     #expect(workflow.state == "active")
 }
+
+@Test
+func workflowsPreferredWorkflowPrefersActive() {
+    let workflows = Workflows(
+        total_count: 2,
+        workflows: [
+            Workflow(id: 1, name: "disabled", path: ".github/workflows/disabled.yml", state: "disabled_manually"),
+            Workflow(id: 2, name: "active", path: ".github/workflows/active.yml", state: "active"),
+        ]
+    )
+
+    #expect(workflows.preferredWorkflow?.id == 2)
+}
+
+@Test
+func workflowsPreferredWorkflowFallsBackToFirst() {
+    let workflows = Workflows(
+        total_count: 2,
+        workflows: [
+            Workflow(id: 1, name: "one", path: ".github/workflows/one.yml", state: "disabled_manually"),
+            Workflow(id: 2, name: "two", path: ".github/workflows/two.yml", state: "disabled_inactivity"),
+        ]
+    )
+
+    #expect(workflows.preferredWorkflow?.id == 1)
+}
+
+@Test
+func workflowsPreferredWorkflowIsNilWhenEmpty() {
+    let workflows = Workflows(total_count: 0, workflows: [])
+    #expect(workflows.preferredWorkflow == nil)
+}

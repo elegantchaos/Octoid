@@ -62,7 +62,7 @@ func liveWorkflowRunsEndpointDecodesRuns() async throws {
         )
 
         let workflows = try await session.awaitWorkflows()
-        guard let discoveredWorkflow = workflows.workflows.first else {
+        guard let discoveredWorkflow = workflows.preferredWorkflow else {
             throw IntegrationTestError.noWorkflows(context: await session.requestContext())
         }
 
