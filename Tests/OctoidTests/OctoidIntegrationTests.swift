@@ -247,7 +247,7 @@ private actor IntegrationState {
 
 private final class IntegrationOctoidSession: Octoid.Session, MessageReceiver {
     private let state = IntegrationState()
-    private let defaultTimeout: TimeInterval = 45
+    private let defaultTimeout: TimeInterval = 90
 
     private func captureRequestContext(request: JSONSession.Request, response: HTTPURLResponse) {
         let path = request.resource.path(in: self)
