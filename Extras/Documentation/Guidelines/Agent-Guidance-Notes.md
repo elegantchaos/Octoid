@@ -31,4 +31,4 @@ This folder was refreshed from shared guidance in `~/.local/share/agents` for th
 
 ## Local vs Shared Conflicts
 
-- No direct conflicts identified. Local repository constraints (API compatibility, secure credential handling) are preserved in `AGENTS.md`.
+- No direct conflicts identified. Local repository constraints (API compatibility, secure credential handling, integration-test token handling) are preserved in `AGENTS.md`.
