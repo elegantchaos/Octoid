@@ -10,21 +10,24 @@ import JSONSession
 import FoundationNetworking
 #endif
 
-public struct UnchangedProcessor: ProcessorBase {
+/// Processor handling HTTP 304 responses for poll requests.
+public struct UnchangedProcessor<Context: Sendable>: ProcessorGroup {
+    /// Processor display name.
     public let name = "unchanged"
-    public let codes = [304]
-    public var processors: [ProcessorBase] { return [self] }
-    
+    /// Wrapped processor chain containing the single unchanged-response handler.
+    public let processors: [AnyProcessor<Context>]
+
+    /// Creates an unchanged-response processor.
     public init() {
-    }
-    
-    public func decode(data: Data, with decoder: JSONDecoder) throws -> Decodable {
-        return ""
-    }
-    
-    public func process(decoded: Decodable, response: HTTPURLResponse, for request: Request, in session: JSONSession.Session) -> RepeatStatus {
-        // if we got a 304 response, we don't need to decode anything
-        octoidChannel.log("\(request.resource) was unchanged.")
-        return .inherited
+        processors = [
+            AnyProcessor(
+                name: name,
+                codes: [304],
+                decode: { _, _ in () },
+                process: { _, _, request, _ in
+                    octoidChannel.log("\(request.resource) was unchanged.")
+                    return .inherited
+                })
+        ]
     }
 }

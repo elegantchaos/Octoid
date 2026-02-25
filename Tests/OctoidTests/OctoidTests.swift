@@ -1,43 +1,212 @@
-import XCTest
-import XCTestExtensions
+import Foundation
+import JSONSession
+import Testing
 
 @testable import Octoid
 
-final class OctoidTests: XCTestCase {
-    func testEventDecoding() {
-        let data = self.testData(named: "events", withExtension: "json")
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-        let formatter = ISO8601DateFormatter()
-        
-        let events = try! decoder.decode(Events.self, from: data)
-        XCTAssertEqual(events.count, 5)
-        
-        let event = events.first!
-        XCTAssertEqual(event.id, "12444868583")
-        XCTAssertEqual(event.type, "PushEvent")
-        XCTAssertEqual(event.created_at, formatter.date(from: "2020-05-26T19:06:39Z"))
-        
-        let actor = event.actor
-        XCTAssertEqual(actor.display_login, "samdeane")
-        XCTAssertEqual(actor.id, 206306)
-        XCTAssertEqual(actor.login, "samdeane")
-        XCTAssertEqual(actor.avatar_url, "https://avatars.githubusercontent.com/u/206306?")
-        XCTAssertEqual(actor.url, "https://api.github.com/users/samdeane")
-        XCTAssertEqual(actor.gravatar_id, "")
+private func testData(named name: String, withExtension ext: String) throws -> Data {
+    guard let url = Bundle.module.url(forResource: name, withExtension: ext) else {
+        throw TestFixtureError.notFound(name: name, ext: ext)
     }
-    
-    func testWorkflowDecoding() {
-        let data = self.testData(named: "runs", withExtension: "json")
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
+    return try Data(contentsOf: url)
+}
 
-        let runs = try! decoder.decode(WorkflowRuns.self, from: data)
-        XCTAssertEqual(runs.total_count, 1)
-        
-        let run = runs.latestRun
-        XCTAssertEqual(run.id, 115887997)
-        XCTAssertEqual(run.status, "in_progress")
-        XCTAssertNil(run.conclusion)
+private enum TestFixtureError: Error {
+    case notFound(name: String, ext: String)
+}
+
+@Test
+func eventDecoding() throws {
+    let data = try testData(named: "events", withExtension: "json")
+    let decoder = JSONDecoder()
+    decoder.dateDecodingStrategy = .iso8601
+    let formatter = ISO8601DateFormatter()
+
+    let events = try decoder.decode(Events.self, from: data)
+    #expect(events.count == 5)
+
+    let event = try #require(events.first)
+    #expect(event.id == "12444868583")
+    #expect(event.type == "PushEvent")
+    #expect(event.created_at == formatter.date(from: "2020-05-26T19:06:39Z"))
+
+    let actor = event.actor
+    #expect(actor.display_login == "samdeane")
+    #expect(actor.id == 206306)
+    #expect(actor.login == "samdeane")
+    #expect(actor.avatar_url == "https://avatars.githubusercontent.com/u/206306?")
+    #expect(actor.url == "https://api.github.com/users/samdeane")
+    #expect(actor.gravatar_id == "")
+}
+
+@Test
+func workflowDecoding() throws {
+    let data = try testData(named: "runs", withExtension: "json")
+    let decoder = JSONDecoder()
+    decoder.dateDecodingStrategy = .iso8601
+
+    let runs = try decoder.decode(WorkflowRuns.self, from: data)
+    #expect(runs.total_count == 1)
+
+    let run = runs.latestRun
+    #expect(run.id == 115887997)
+    #expect(run.status == "in_progress")
+    #expect(run.conclusion == nil)
+}
+
+@Test
+func workflowDecodingAllowsNullHeadCommit() throws {
+    let json = """
+    {
+      "total_count": 1,
+      "workflow_runs": [
+        {
+          "id": 42,
+          "run_number": 7,
+          "status": "queued",
+          "conclusion": null,
+          "head_commit": null
+        }
+      ]
     }
+    """.data(using: .utf8)!
+
+    let runs = try JSONDecoder().decode(WorkflowRuns.self, from: json)
+    let run = try #require(runs.workflow_runs.first)
+    #expect(run.head_commit == nil)
+}
+
+@Test
+func workflowResourcePathForBareWorkflowName() {
+    let resource = WorkflowResource(name: "Logger", owner: "elegantchaos", workflow: "tests")
+    let session = JSONSession.Session(base: URL(string: "https://api.github.com")!, token: "test-token")
+
+    #expect(resource.path(in: session) == "repos/elegantchaos/Logger/actions/workflows/tests.yml/runs")
+}
+
+@Test
+func workflowResourcePathStripsYMLExtension() {
+    let resource = WorkflowResource(name: "Logger", owner: "elegantchaos", workflow: "tests.yml")
+    let session = JSONSession.Session(base: URL(string: "https://api.github.com")!, token: "test-token")
+
+    #expect(resource.path(in: session) == "repos/elegantchaos/Logger/actions/workflows/tests.yml/runs")
+}
+
+@Test
+func workflowResourcePathStripsYAMLExtension() {
+    let resource = WorkflowResource(name: "Logger", owner: "elegantchaos", workflow: "tests.yaml")
+    let session = JSONSession.Session(base: URL(string: "https://api.github.com")!, token: "test-token")
+
+    #expect(resource.path(in: session) == "repos/elegantchaos/Logger/actions/workflows/tests.yml/runs")
+}
+
+@Test
+func workflowResourcePathStripsUppercaseYAMLExtension() {
+    let resource = WorkflowResource(name: "Logger", owner: "elegantchaos", workflow: "tests.YAML")
+    let session = JSONSession.Session(base: URL(string: "https://api.github.com")!, token: "test-token")
+
+    #expect(resource.path(in: session) == "repos/elegantchaos/Logger/actions/workflows/tests.yml/runs")
+}
+
+@Test
+func workflowResourcePathForAllWorkflows() {
+    let resource = WorkflowResource.allWorkflows(name: "Logger", owner: "elegantchaos")
+    let session = JSONSession.Session(base: URL(string: "https://api.github.com")!, token: "test-token")
+
+    #expect(resource.path(in: session) == "repos/elegantchaos/Logger/actions/runs")
+}
+
+@Test
+func workflowResourcePathForWorkflowID() {
+    let resource = WorkflowResource(name: "Logger", owner: "elegantchaos", workflowID: 12345)
+    let session = JSONSession.Session(base: URL(string: "https://api.github.com")!, token: "test-token")
+
+    #expect(resource.path(in: session) == "repos/elegantchaos/Logger/actions/workflows/12345/runs")
+}
+
+@Test
+func workflowResourceDescriptionForNameAndExtensions() {
+    let named = WorkflowResource(name: "Logger", owner: "elegantchaos", workflow: "tests")
+    let withYML = WorkflowResource(name: "Logger", owner: "elegantchaos", workflow: "tests.yml")
+    let withYAML = WorkflowResource(name: "Logger", owner: "elegantchaos", workflow: "tests.yaml")
+
+    #expect(named.description == "elegantchaos/Logger tests.yml")
+    #expect(withYML.description == "elegantchaos/Logger tests.yml")
+    #expect(withYAML.description == "elegantchaos/Logger tests.yml")
+}
+
+@Test
+func workflowResourceDescriptionForIDAndAllWorkflows() {
+    let byID = WorkflowResource(name: "Logger", owner: "elegantchaos", workflowID: 12345)
+    let allWorkflows = WorkflowResource.allWorkflows(name: "Logger", owner: "elegantchaos")
+
+    #expect(byID.description == "elegantchaos/Logger workflow id 12345")
+    #expect(allWorkflows.description == "elegantchaos/Logger all workflows")
+}
+
+@Test
+func workflowsResourcePath() {
+    let resource = WorkflowsResource(name: "Logger", owner: "elegantchaos")
+    let session = JSONSession.Session(base: URL(string: "https://api.github.com")!, token: "test-token")
+
+    #expect(resource.path(in: session) == "repos/elegantchaos/Logger/actions/workflows")
+}
+
+@Test
+func workflowsDecoding() throws {
+    let json = """
+    {
+      "total_count": 1,
+      "workflows": [
+        {
+          "id": 12345,
+          "name": "tests",
+          "path": ".github/workflows/tests.yml",
+          "state": "active"
+        }
+      ]
+    }
+    """.data(using: .utf8)!
+
+    let workflows = try JSONDecoder().decode(Workflows.self, from: json)
+    #expect(workflows.total_count == 1)
+    #expect(workflows.workflows.count == 1)
+
+    let workflow = try #require(workflows.workflows.first)
+    #expect(workflow.id == 12345)
+    #expect(workflow.name == "tests")
+    #expect(workflow.path == ".github/workflows/tests.yml")
+    #expect(workflow.state == "active")
+}
+
+@Test
+func workflowsPreferredWorkflowPrefersActive() {
+    let workflows = Workflows(
+        total_count: 2,
+        workflows: [
+            Workflow(id: 1, name: "disabled", path: ".github/workflows/disabled.yml", state: "disabled_manually"),
+            Workflow(id: 2, name: "active", path: ".github/workflows/active.yml", state: "active"),
+        ]
+    )
+
+    #expect(workflows.preferredWorkflow?.id == 2)
+}
+
+@Test
+func workflowsPreferredWorkflowFallsBackToFirst() {
+    let workflows = Workflows(
+        total_count: 2,
+        workflows: [
+            Workflow(id: 1, name: "one", path: ".github/workflows/one.yml", state: "disabled_manually"),
+            Workflow(id: 2, name: "two", path: ".github/workflows/two.yml", state: "disabled_inactivity"),
+        ]
+    )
+
+    #expect(workflows.preferredWorkflow?.id == 1)
+}
+
+@Test
+func workflowsPreferredWorkflowIsNilWhenEmpty() {
+    let workflows = Workflows(total_count: 0, workflows: [])
+    #expect(workflows.preferredWorkflow == nil)
 }

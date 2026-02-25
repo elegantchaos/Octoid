@@ -1,9 +1,9 @@
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-//  Created by Sam Deane on 26/05/2020.
+//  Created by Sam Deane on 25/02/2026.
 //  All code (c) 2020 - present day, Elegant Chaos Limited.
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
-import Foundation
+import Logger
 
-/// A generic dictionary representation used for loosely typed JSON payloads.
-public typealias JSONDictionary = [String:Any]
+/// Logging channel used by Octoid components.
+public let octoidChannel = Channel("com.elegantchaos.Octoid")

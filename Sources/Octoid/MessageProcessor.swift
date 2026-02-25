@@ -10,31 +10,48 @@ import JSONSession
 import FoundationNetworking
 #endif
 
+/// Standard GitHub API error payload.
 public struct Message: Codable {
+    /// Human-readable error message.
     public let message: String
+    /// URL to documentation for the error condition.
     public let documentation_url: String
 }
 
 extension Message: CustomStringConvertible {
+    /// Combined message and documentation URL.
     public var description: String {
         return "\(message): \(documentation_url)"
     }
 }
 
-public protocol MessageReceiver {
-    func received(_ message: Message, response: HTTPURLResponse, for request: Request) -> RepeatStatus
+/// Receives decoded error messages from `MessageProcessor`.
+public protocol MessageReceiver: Sendable {
+    /// Handles a decoded API message and returns the follow-up polling behavior.
+    func received(_ message: Message, response: HTTPURLResponse, for request: Request<Self>) async -> RepeatStatus
 }
 
-public struct MessageProcessor<S>: Processor where S: Session, S: MessageReceiver {
-    public let name = "message"
-    public let codes = [400, 401, 403, 404]
-    public var processors: [ProcessorBase] { return [self] }
+/// Processor that decodes standard GitHub error payloads for common error status codes.
+public struct MessageProcessor<Context: MessageReceiver>: Processor {
+    public typealias Payload = Message
 
+    /// Processor display name.
+    public let name = "message"
+    /// Supported HTTP status codes.
+    public let codes = [400, 401, 403, 404]
+
+    /// Creates a message processor.
     public init() {
     }
-    
-    public func process(_ message: Message, response: HTTPURLResponse, for request: Request, in session: S) -> RepeatStatus {
+
+    /// Logs and forwards decoded API messages to the session receiver.
+    public func process(
+        _ message: Message,
+        response: HTTPURLResponse,
+        for request: Request<Context>,
+        in context: Context
+    ) async -> RepeatStatus {
         octoidChannel.log("\(request.resource) \(message)")
-        return session.received(message, response: response, for: request)
+        return await context.received(message, response: response, for: request)
     }
 }
