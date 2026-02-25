@@ -32,6 +32,90 @@ Octoid is intentionally small and built around a few simple ideas:
 
 The package prefers focused behavior over broad API coverage, and aims to keep public surface area small and explicit.
 
+## Usage
+
+### Add the dependency
+
+```swift
+dependencies: [
+    .package(url: "https://github.com/elegantchaos/Octoid.git", from: "1.0.0")
+]
+```
+
+Then add `"Octoid"` to your target dependencies.
+
+### Create a polling session
+
+`Octoid.Session` is a thin GitHub-configured `JSONSession.Session`:
+
+```swift
+import Octoid
+
+let session = Session(token: githubToken)
+```
+
+In real usage (for example ActionStatus), a custom session type typically:
+
+- stores repo-specific state (such as last event date),
+- owns processor groups,
+- conforms to `MessageReceiver` to handle API errors.
+
+### Poll repository events
+
+```swift
+import JSONSession
+import Octoid
+
+let resource = EventsResource(name: repoName, owner: owner)
+session.poll(
+    target: resource,
+    processors: [EventsProcessor(), UnchangedProcessor(), MessageProcessor<MySession>()],
+    for: .now(),
+    repeatingEvery: 30.0
+)
+```
+
+Your `EventsProcessor` receives `[Event]` and can decide whether to trigger workflow polling.
+
+### Poll workflow runs
+
+If you already know the workflow:
+
+```swift
+let resource = WorkflowResource(name: repoName, owner: owner, workflow: "tests")
+```
+
+If you don’t know the workflow name up front, discover first and then poll by workflow ID:
+
+```swift
+let workflowsResource = WorkflowsResource(name: repoName, owner: owner)
+session.poll(target: workflowsResource, processors: [WorkflowsProcessor(), MessageProcessor<MySession>()])
+
+// pick preferred workflow (active first, otherwise first returned)
+if let workflowID = workflows.preferredWorkflow?.id {
+    let runsResource = WorkflowResource(name: repoName, owner: owner, workflowID: workflowID)
+    session.poll(target: runsResource, processors: [WorkflowRunsProcessor(), UnchangedProcessor(), MessageProcessor<MySession>()])
+}
+```
+
+`WorkflowResource` also supports:
+
+- `WorkflowResource.allWorkflows(name:owner:)` for repository-wide runs.
+- workflow names with `.yml` or `.yaml` suffixes (suffix is normalized automatically).
+
+### Handle API errors
+
+Conform your session to `MessageReceiver` to handle decoded error payloads and control polling retries/cancellation:
+
+```swift
+extension MySession: MessageReceiver {
+    func received(_ message: Message, response: HTTPURLResponse, for request: Request) -> RepeatStatus {
+        // inspect status/message and decide whether to continue polling
+        return .inherited
+    }
+}
+```
+
 ## Testing
 
 Testing setup, live integration-test configuration, and environment variables are documented in [TESTING.md](TESTING.md).
