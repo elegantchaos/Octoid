@@ -21,7 +21,7 @@ func liveEventsEndpointDecodesEvents() async throws {
     ]
 
     for repo in repos {
-        let session = Session(token: configuration.token)
+        let session = JSONSession.Session(base: configuration.apiBaseURL, token: configuration.token)
         let context = IntegrationContext()
         let resource = EventsResource(name: repo.name, owner: repo.owner)
 
@@ -60,7 +60,7 @@ func liveWorkflowRunsEndpointDecodesRuns() async throws {
     ]
 
     for repo in repos {
-        let session = Session(token: configuration.token)
+        let session = JSONSession.Session(base: configuration.apiBaseURL, token: configuration.token)
         let context = IntegrationContext()
 
         // Discover workflows first, then fetch runs using workflow ID to avoid filename/case guesses.
@@ -123,7 +123,7 @@ func liveWorkflowsEndpointDecodesWorkflows() async throws {
     ]
 
     for repo in repos {
-        let session = Session(token: configuration.token)
+        let session = JSONSession.Session(base: configuration.apiBaseURL, token: configuration.token)
         let context = IntegrationContext()
         let resource = WorkflowsResource(name: repo.name, owner: repo.owner)
 
@@ -155,7 +155,7 @@ func liveMissingWorkflowReturnsNotFoundMessage() async throws {
         return
     }
 
-    let session = Session(token: configuration.token)
+    let session = JSONSession.Session(base: configuration.apiBaseURL, token: configuration.token)
     let context = IntegrationContext()
     let missingWorkflow = "definitely-not-a-real-workflow-\(UUID().uuidString)"
     let resource = WorkflowResource(
