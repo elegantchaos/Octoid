@@ -55,6 +55,28 @@ func workflowDecoding() throws {
 }
 
 @Test
+func workflowDecodingAllowsNullHeadCommit() throws {
+    let json = """
+    {
+      "total_count": 1,
+      "workflow_runs": [
+        {
+          "id": 42,
+          "run_number": 7,
+          "status": "queued",
+          "conclusion": null,
+          "head_commit": null
+        }
+      ]
+    }
+    """.data(using: .utf8)!
+
+    let runs = try JSONDecoder().decode(WorkflowRuns.self, from: json)
+    let run = try #require(runs.workflow_runs.first)
+    #expect(run.head_commit == nil)
+}
+
+@Test
 func workflowResourcePathForBareWorkflowName() {
     let resource = WorkflowResource(name: "Logger", owner: "elegantchaos", workflow: "tests")
     let session = JSONSession.Session(base: URL(string: "https://api.github.com")!, token: "test-token")

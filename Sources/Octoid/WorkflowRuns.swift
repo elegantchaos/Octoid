@@ -38,7 +38,8 @@ public struct WorkflowRun: Codable {
     /// Final run conclusion when complete.
     public let conclusion: String?
     /// Head commit metadata associated with the run.
-    public let head_commit: HeadCommit
+    /// GitHub can return `null` for some run/event types.
+    public let head_commit: HeadCommit?
 }
 
 /// Resource resolver for workflow-runs endpoints.
