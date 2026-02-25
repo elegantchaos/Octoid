@@ -33,20 +33,83 @@ public struct WorkflowResource: ResourceResolver {
     public let name: String
     public let owner: String
     public let workflow: String
-    
+    let workflowID: Int?
+    let normalizedWorkflow: String
+    let includeAllWorkflows: Bool
+
     public init(name: String, owner: String, workflow: String = "Tests") {
         self.name = name
         self.owner = owner
         self.workflow = workflow
+        workflowID = nil
+        includeAllWorkflows = false
+        normalizedWorkflow = Self.normalized(workflow: workflow)
+    }
+
+    public init(name: String, owner: String, workflowID: Int) {
+        self.name = name
+        self.owner = owner
+        workflow = String(workflowID)
+        self.workflowID = workflowID
+        includeAllWorkflows = false
+        normalizedWorkflow = workflow
+    }
+
+    private init(name: String, owner: String, workflow: String, includeAllWorkflows: Bool) {
+        self.name = name
+        self.owner = owner
+        self.workflow = workflow
+        workflowID = nil
+        self.includeAllWorkflows = includeAllWorkflows
+        normalizedWorkflow = workflow
+    }
+
+    public static func allWorkflows(name: String, owner: String) -> WorkflowResource {
+        WorkflowResource(name: name, owner: owner, workflow: "*", includeAllWorkflows: true)
     }
 
     public func path(in session: JSONSession.Session) -> String {
-        return "repos/\(owner)/\(name)/actions/workflows/\(workflow).yml/runs"
+        if includeAllWorkflows {
+            return "repos/\(owner)/\(name)/actions/runs"
+        }
+
+        if let workflowID {
+            return "repos/\(owner)/\(name)/actions/workflows/\(workflowID)/runs"
+        }
+
+        return "repos/\(owner)/\(name)/actions/workflows/\(normalizedWorkflow).yml/runs"
+    }
+
+    static func normalized(workflow: String) -> String {
+        let lowercaseWorkflow = workflow.lowercased()
+        if lowercaseWorkflow.hasSuffix(".yaml") {
+            octoidChannel.log(
+                "Warning: workflow '\(workflow)' includes '.yml' or '.yaml'; stripping extension when building workflow runs path."
+            )
+            return String(workflow.dropLast(5))
+        }
+
+        if lowercaseWorkflow.hasSuffix(".yml") {
+            octoidChannel.log(
+                "Warning: workflow '\(workflow)' includes '.yml' or '.yaml'; stripping extension when building workflow runs path."
+            )
+            return String(workflow.dropLast(4))
+        }
+
+        return workflow
     }
 }
 
 extension WorkflowResource: CustomStringConvertible {
     public var description: String {
-        return "\(owner)/\(name) \(workflow).yml"
+        if includeAllWorkflows {
+            return "\(owner)/\(name) all workflows"
+        }
+
+        if let workflowID {
+            return "\(owner)/\(name) workflow id \(workflowID)"
+        }
+
+        return "\(owner)/\(name) \(normalizedWorkflow).yml"
     }
 }

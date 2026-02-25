@@ -52,3 +52,78 @@ func workflowDecoding() throws {
     #expect(run.status == "in_progress")
     #expect(run.conclusion == nil)
 }
+
+@Test
+func workflowResourcePathForBareWorkflowName() {
+    let resource = WorkflowResource(name: "Logger", owner: "elegantchaos", workflow: "tests")
+    let session = Session(token: "test-token")
+
+    #expect(resource.path(in: session) == "repos/elegantchaos/Logger/actions/workflows/tests.yml/runs")
+}
+
+@Test
+func workflowResourcePathStripsYMLExtension() {
+    let resource = WorkflowResource(name: "Logger", owner: "elegantchaos", workflow: "tests.yml")
+    let session = Session(token: "test-token")
+
+    #expect(resource.path(in: session) == "repos/elegantchaos/Logger/actions/workflows/tests.yml/runs")
+}
+
+@Test
+func workflowResourcePathStripsYAMLExtension() {
+    let resource = WorkflowResource(name: "Logger", owner: "elegantchaos", workflow: "tests.yaml")
+    let session = Session(token: "test-token")
+
+    #expect(resource.path(in: session) == "repos/elegantchaos/Logger/actions/workflows/tests.yml/runs")
+}
+
+@Test
+func workflowResourcePathForAllWorkflows() {
+    let resource = WorkflowResource.allWorkflows(name: "Logger", owner: "elegantchaos")
+    let session = Session(token: "test-token")
+
+    #expect(resource.path(in: session) == "repos/elegantchaos/Logger/actions/runs")
+}
+
+@Test
+func workflowResourcePathForWorkflowID() {
+    let resource = WorkflowResource(name: "Logger", owner: "elegantchaos", workflowID: 12345)
+    let session = Session(token: "test-token")
+
+    #expect(resource.path(in: session) == "repos/elegantchaos/Logger/actions/workflows/12345/runs")
+}
+
+@Test
+func workflowsResourcePath() {
+    let resource = WorkflowsResource(name: "Logger", owner: "elegantchaos")
+    let session = Session(token: "test-token")
+
+    #expect(resource.path(in: session) == "repos/elegantchaos/Logger/actions/workflows")
+}
+
+@Test
+func workflowsDecoding() throws {
+    let json = """
+    {
+      "total_count": 1,
+      "workflows": [
+        {
+          "id": 12345,
+          "name": "tests",
+          "path": ".github/workflows/tests.yml",
+          "state": "active"
+        }
+      ]
+    }
+    """.data(using: .utf8)!
+
+    let workflows = try JSONDecoder().decode(Workflows.self, from: json)
+    #expect(workflows.total_count == 1)
+    #expect(workflows.workflows.count == 1)
+
+    let workflow = try #require(workflows.workflows.first)
+    #expect(workflow.id == 12345)
+    #expect(workflow.name == "tests")
+    #expect(workflow.path == ".github/workflows/tests.yml")
+    #expect(workflow.state == "active")
+}

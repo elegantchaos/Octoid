@@ -1,6 +1,6 @@
 import Foundation
-import Testing
 import JSONSession
+import Testing
 
 @testable import Octoid
 
@@ -45,17 +45,35 @@ func liveWorkflowRunsEndpointDecodesRuns() async throws {
     }
 
     let repos = [
-        RepoFixture(owner: "elegantchaos", name: "Logger", workflow: configuration.workflow),
-        RepoFixture(owner: "elegantchaos", name: "ReleaseTools", workflow: configuration.workflow),
-        RepoFixture(owner: "elegantchaos", name: "Stack", workflow: configuration.workflow),
+        RepoFixture(owner: "elegantchaos", name: "Logger"),
+        RepoFixture(owner: "elegantchaos", name: "ReleaseTools"),
+        RepoFixture(owner: "elegantchaos", name: "Stack"),
     ]
 
     for repo in repos {
         let session = IntegrationOctoidSession(token: configuration.token)
-        let resource = WorkflowResource(name: repo.name, owner: repo.owner, workflow: repo.workflow)
+        let workflowsResource = WorkflowsResource(name: repo.name, owner: repo.owner)
+        session.poll(
+            target: workflowsResource,
+            processors: [WorkflowsCaptureProcessor(), MessageProcessor<IntegrationOctoidSession>()],
+            for: DispatchTime.now()
+        )
+
+        let workflows = try await session.awaitWorkflows()
+        guard let discoveredWorkflow = workflows.workflows.first else {
+            throw IntegrationTestError.noWorkflows(context: await session.requestContext())
+        }
+
+        let resource = WorkflowResource(
+            name: repo.name,
+            owner: repo.owner,
+            workflowID: discoveredWorkflow.id
+        )
         session.poll(
             target: resource,
-            processors: [WorkflowRunsCaptureProcessor(), MessageProcessor<IntegrationOctoidSession>()],
+            processors: [
+                WorkflowRunsCaptureProcessor(), MessageProcessor<IntegrationOctoidSession>(),
+            ],
             for: DispatchTime.now()
         )
 
@@ -76,7 +94,8 @@ func liveMissingWorkflowReturnsNotFoundMessage() async throws {
 
     let session = IntegrationOctoidSession(token: configuration.token)
     let missingWorkflow = "definitely-not-a-real-workflow-\(UUID().uuidString)"
-    let resource = WorkflowResource(name: "Logger", owner: "elegantchaos", workflow: missingWorkflow)
+    let resource = WorkflowResource(
+        name: "Logger", owner: "elegantchaos", workflow: missingWorkflow)
     session.poll(
         target: resource,
         processors: [WorkflowRunsCaptureProcessor(), MessageProcessor<IntegrationOctoidSession>()],
@@ -100,12 +119,10 @@ private func liveConfiguration(for testName: String) async -> IntegrationConfigu
 private struct RepoFixture {
     let owner: String
     let name: String
-    let workflow: String
 
-    init(owner: String, name: String, workflow: String = "Tests") {
+    init(owner: String, name: String) {
         self.owner = owner
         self.name = name
-        self.workflow = workflow
     }
 }
 
@@ -116,8 +133,11 @@ private struct EventsCaptureProcessor: JSONSession.Processor {
     let name = "events capture"
     let codes = [200]
 
-    func process(_ payload: Events, response _: HTTPURLResponse, for _: JSONSession.Request, in session: IntegrationOctoidSession) -> RepeatStatus {
-        session.capture(events: payload)
+    func process(
+        _ payload: Events, response: HTTPURLResponse, for request: JSONSession.Request,
+        in session: IntegrationOctoidSession
+    ) -> RepeatStatus {
+        session.capture(events: payload, response: response, request: request)
         return .cancel
     }
 }
@@ -129,16 +149,43 @@ private struct WorkflowRunsCaptureProcessor: JSONSession.Processor {
     let name = "workflow capture"
     let codes = [200]
 
-    func process(_ payload: WorkflowRuns, response _: HTTPURLResponse, for _: JSONSession.Request, in session: IntegrationOctoidSession) -> RepeatStatus {
-        session.capture(runs: payload)
+    func process(
+        _ payload: WorkflowRuns, response: HTTPURLResponse, for request: JSONSession.Request,
+        in session: IntegrationOctoidSession
+    ) -> RepeatStatus {
+        session.capture(runs: payload, response: response, request: request)
         return .cancel
     }
+}
+
+private struct WorkflowsCaptureProcessor: JSONSession.Processor {
+    typealias SessionType = IntegrationOctoidSession
+    typealias Payload = Workflows
+
+    let name = "workflows capture"
+    let codes = [200]
+
+    func process(
+        _ payload: Workflows, response: HTTPURLResponse, for request: JSONSession.Request,
+        in session: IntegrationOctoidSession
+    ) -> RepeatStatus {
+        session.capture(workflows: payload, response: response, request: request)
+        return .cancel
+    }
+}
+
+private struct IntegrationRequestContext {
+    let url: URL?
+    let statusCode: Int?
 }
 
 private actor IntegrationState {
     var events: Events?
     var runs: WorkflowRuns?
+    var workflows: Workflows?
     var message: Message?
+    var lastRequestURL: URL?
+    var lastStatusCode: Int?
 
     func set(events: Events) {
         self.events = events
@@ -148,27 +195,60 @@ private actor IntegrationState {
         self.runs = runs
     }
 
+    func set(workflows: Workflows) {
+        self.workflows = workflows
+    }
+
     func set(message: Message) {
         self.message = message
+    }
+
+    func set(requestURL: URL?, statusCode: Int) {
+        lastRequestURL = requestURL
+        lastStatusCode = statusCode
+    }
+
+    func requestContext() -> IntegrationRequestContext {
+        IntegrationRequestContext(url: lastRequestURL, statusCode: lastStatusCode)
     }
 }
 
 private final class IntegrationOctoidSession: Octoid.Session, MessageReceiver {
     private let state = IntegrationState()
 
-    func capture(events: Events) {
+    private func captureRequestContext(request: JSONSession.Request, response: HTTPURLResponse) {
+        let path = request.resource.path(in: self)
+        let url = base.appendingPathComponent(path)
+        Task {
+            await state.set(requestURL: url, statusCode: response.statusCode)
+        }
+    }
+
+    func capture(events: Events, response: HTTPURLResponse, request: JSONSession.Request) {
+        captureRequestContext(request: request, response: response)
         Task {
             await state.set(events: events)
         }
     }
 
-    func capture(runs: WorkflowRuns) {
+    func capture(runs: WorkflowRuns, response: HTTPURLResponse, request: JSONSession.Request) {
+        captureRequestContext(request: request, response: response)
         Task {
             await state.set(runs: runs)
         }
     }
 
-    func received(_ message: Message, response _: HTTPURLResponse, for _: JSONSession.Request) -> RepeatStatus {
+    func capture(workflows: Workflows, response: HTTPURLResponse, request: JSONSession.Request) {
+        captureRequestContext(request: request, response: response)
+        Task {
+            await state.set(workflows: workflows)
+        }
+    }
+
+    func received(_ message: Message, response: HTTPURLResponse, for request: JSONSession.Request)
+        -> RepeatStatus
+    {
+        captureRequestContext(request: request, response: response)
         Task {
             await state.set(message: message)
         }
@@ -179,7 +259,8 @@ private final class IntegrationOctoidSession: Octoid.Session, MessageReceiver {
         let expiry = Date().addingTimeInterval(timeout)
         while Date() < expiry {
             if let message = await state.message {
-                throw IntegrationTestError.api(message.description)
+                throw IntegrationTestError.api(
+                    message.description, context: await state.requestContext())
             }
             if let events = await state.events {
                 return events
@@ -187,14 +268,15 @@ private final class IntegrationOctoidSession: Octoid.Session, MessageReceiver {
             try await Task.sleep(nanoseconds: 100_000_000)
         }
 
-        throw IntegrationTestError.timeout
+        throw IntegrationTestError.timeout(context: await state.requestContext())
     }
 
     func awaitRuns(timeout: TimeInterval = 30) async throws -> WorkflowRuns {
         let expiry = Date().addingTimeInterval(timeout)
         while Date() < expiry {
             if let message = await state.message {
-                throw IntegrationTestError.api(message.description)
+                throw IntegrationTestError.api(
+                    message.description, context: await state.requestContext())
             }
             if let runs = await state.runs {
                 return runs
@@ -202,7 +284,23 @@ private final class IntegrationOctoidSession: Octoid.Session, MessageReceiver {
             try await Task.sleep(nanoseconds: 100_000_000)
         }
 
-        throw IntegrationTestError.timeout
+        throw IntegrationTestError.timeout(context: await state.requestContext())
+    }
+
+    func awaitWorkflows(timeout: TimeInterval = 30) async throws -> Workflows {
+        let expiry = Date().addingTimeInterval(timeout)
+        while Date() < expiry {
+            if let message = await state.message {
+                throw IntegrationTestError.api(
+                    message.description, context: await state.requestContext())
+            }
+            if let workflows = await state.workflows {
+                return workflows
+            }
+            try await Task.sleep(nanoseconds: 100_000_000)
+        }
+
+        throw IntegrationTestError.timeout(context: await state.requestContext())
     }
 
     func awaitMessage(timeout: TimeInterval = 30) async throws -> Message {
@@ -214,11 +312,45 @@ private final class IntegrationOctoidSession: Octoid.Session, MessageReceiver {
             try await Task.sleep(nanoseconds: 100_000_000)
         }
 
-        throw IntegrationTestError.timeout
+        throw IntegrationTestError.timeout(context: await state.requestContext())
+    }
+
+    func requestContext() async -> IntegrationRequestContext {
+        await state.requestContext()
     }
 }
 
-private enum IntegrationTestError: Error {
-    case api(String)
-    case timeout
+private enum IntegrationTestError: Error, LocalizedError {
+    case api(String, context: IntegrationRequestContext)
+    case timeout(context: IntegrationRequestContext)
+    case noWorkflows(context: IntegrationRequestContext)
+
+    var errorDescription: String? {
+        switch self {
+        case .api(let description, let context):
+            return "GitHub API error: \(description)\(context.suffix)"
+        case .timeout(let context):
+            return "Timed out waiting for integration response\(context.suffix)"
+        case .noWorkflows(let context):
+            return "No workflows found for repository\(context.suffix)"
+        }
+    }
+}
+
+extension IntegrationRequestContext {
+    fileprivate var suffix: String {
+        var fields: [String] = []
+        if let url {
+            fields.append("url=\(url.absoluteString)")
+        }
+        if let statusCode {
+            fields.append("status=\(statusCode)")
+        }
+
+        guard !fields.isEmpty else {
+            return "."
+        }
+
+        return " (\(fields.joined(separator: ", ")))."
+    }
 }

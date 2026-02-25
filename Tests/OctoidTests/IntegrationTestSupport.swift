@@ -2,7 +2,7 @@ import Foundation
 import Testing
 
 #if canImport(Security)
-import Security
+    import Security
 #endif
 
 struct IntegrationConfiguration {
@@ -36,30 +36,36 @@ enum IntegrationTestSupport {
         var user = resolvedGithubUser()
         var token = user.flatMap { keychainPassword(account: $0, service: server) }
 
-        if (user == nil || token == nil), shouldAttemptDeviceSignIn() {
+        if user == nil || token == nil, shouldAttemptDeviceSignIn() {
             do {
                 let login = try await signInWithGitHubDeviceFlow(server: server)
                 user = login.user
                 token = login.token
                 _ = saveKeychainPassword(account: user!, service: server, password: token!)
-                _ = saveKeychainPassword(account: octoidUserAccount, service: octoidMetadataService, password: user!)
-                _ = saveKeychainPassword(account: octoidServerAccount, service: octoidMetadataService, password: server)
+                _ = saveKeychainPassword(
+                    account: octoidUserAccount, service: octoidMetadataService, password: user!)
+                _ = saveKeychainPassword(
+                    account: octoidServerAccount, service: octoidMetadataService, password: server)
             } catch {
                 return .skipped("GitHub device sign-in failed: \(error)")
             }
         }
 
         guard let resolvedUser = user else {
-            return .skipped("Missing GitHub user. Set OCTOID_GITHUB_USER, sign into ActionStatus, or run with OCTOID_GITHUB_DEVICE_SIGNIN=1 and OCTOID_GITHUB_CLIENT_ID=<client-id>.")
+            return .skipped(
+                "Missing GitHub user. Set OCTOID_GITHUB_USER, sign into ActionStatus, or run with OCTOID_GITHUB_DEVICE_SIGNIN=1 and OCTOID_GITHUB_CLIENT_ID=<client-id>."
+            )
         }
 
         guard let resolvedToken = token else {
-            return .skipped("No token in keychain for account '\(resolvedUser)' and service '\(server)'. Enable device sign-in with OCTOID_GITHUB_DEVICE_SIGNIN=1.")
+            return .skipped(
+                "No token in keychain for account '\(resolvedUser)' and service '\(server)'. Enable device sign-in with OCTOID_GITHUB_DEVICE_SIGNIN=1."
+            )
         }
 
         let owner = ProcessInfo.processInfo.environment["OCTOID_TEST_OWNER"] ?? "elegantchaos"
         let repository = ProcessInfo.processInfo.environment["OCTOID_TEST_REPO"] ?? "Octoid"
-        let workflow = ProcessInfo.processInfo.environment["OCTOID_TEST_WORKFLOW"] ?? "Tests"
+        let workflow = ProcessInfo.processInfo.environment["OCTOID_TEST_WORKFLOW"] ?? "tests"
 
         guard let apiBaseURL = normalizedAPIBaseURL(from: server) else {
             return .skipped("Configured server '\(server)' is not a valid API host.")
@@ -102,11 +108,15 @@ enum IntegrationTestSupport {
     }
 
     private static func resolvedServer() -> String {
-        if let value = ProcessInfo.processInfo.environment["OCTOID_GITHUB_SERVER"]?.trimmingCharacters(in: .whitespacesAndNewlines), !value.isEmpty {
+        if let value = ProcessInfo.processInfo.environment["OCTOID_GITHUB_SERVER"]?
+            .trimmingCharacters(in: .whitespacesAndNewlines), !value.isEmpty
+        {
             return value
         }
 
-        if let value = keychainPassword(account: octoidServerAccount, service: octoidMetadataService) {
+        if let value = keychainPassword(
+            account: octoidServerAccount, service: octoidMetadataService)
+        {
             return value
         }
 
@@ -118,11 +128,14 @@ enum IntegrationTestSupport {
     }
 
     private static func resolvedGithubUser() -> String? {
-        if let value = ProcessInfo.processInfo.environment["OCTOID_GITHUB_USER"]?.trimmingCharacters(in: .whitespacesAndNewlines), !value.isEmpty {
+        if let value = ProcessInfo.processInfo.environment["OCTOID_GITHUB_USER"]?
+            .trimmingCharacters(in: .whitespacesAndNewlines), !value.isEmpty
+        {
             return value
         }
 
-        if let value = keychainPassword(account: octoidUserAccount, service: octoidMetadataService) {
+        if let value = keychainPassword(account: octoidUserAccount, service: octoidMetadataService)
+        {
             return value
         }
 
@@ -130,15 +143,23 @@ enum IntegrationTestSupport {
     }
 
     private static func shouldAttemptDeviceSignIn() -> Bool {
-        guard let raw = ProcessInfo.processInfo.environment["OCTOID_GITHUB_DEVICE_SIGNIN"]?.lowercased() else {
+        guard
+            let raw = ProcessInfo.processInfo.environment["OCTOID_GITHUB_DEVICE_SIGNIN"]?
+                .lowercased()
+        else {
             return false
         }
 
         return raw == "1" || raw == "true" || raw == "yes"
     }
 
-    private static func signInWithGitHubDeviceFlow(server: String) async throws -> (user: String, token: String) {
-        guard let clientID = ProcessInfo.processInfo.environment["OCTOID_GITHUB_CLIENT_ID"]?.trimmingCharacters(in: .whitespacesAndNewlines), !clientID.isEmpty else {
+    private static func signInWithGitHubDeviceFlow(server: String) async throws -> (
+        user: String, token: String
+    ) {
+        guard
+            let clientID = ProcessInfo.processInfo.environment["OCTOID_GITHUB_CLIENT_ID"]?
+                .trimmingCharacters(in: .whitespacesAndNewlines), !clientID.isEmpty
+        else {
             throw DeviceSignInError.missingClientID
         }
 
@@ -167,7 +188,8 @@ enum IntegrationTestSupport {
                 fields: [
                     URLQueryItem(name: "client_id", value: clientID),
                     URLQueryItem(name: "device_code", value: deviceCodeResponse.deviceCode),
-                    URLQueryItem(name: "grant_type", value: "urn:ietf:params:oauth:grant-type:device_code"),
+                    URLQueryItem(
+                        name: "grant_type", value: "urn:ietf:params:oauth:grant-type:device_code"),
                 ]
             )
 
@@ -242,7 +264,9 @@ enum IntegrationTestSupport {
         return url
     }
 
-    private static func postForm<T: Decodable>(to url: URL, fields: [URLQueryItem]) async throws -> T {
+    private static func postForm<T: Decodable>(to url: URL, fields: [URLQueryItem]) async throws
+        -> T
+    {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Accept")
@@ -265,54 +289,56 @@ enum IntegrationTestSupport {
 
     private static func keychainPassword(account: String, service: String) -> String? {
         #if canImport(Security)
-        let query: [CFString: Any] = [
-            kSecClass: kSecClassGenericPassword,
-            kSecAttrService: service,
-            kSecAttrAccount: account,
-            kSecReturnData: true,
-            kSecMatchLimit: kSecMatchLimitOne,
-        ]
+            let query: [CFString: Any] = [
+                kSecClass: kSecClassGenericPassword,
+                kSecAttrService: service,
+                kSecAttrAccount: account,
+                kSecReturnData: true,
+                kSecMatchLimit: kSecMatchLimitOne,
+            ]
 
-        var item: CFTypeRef?
-        let status = SecItemCopyMatching(query as CFDictionary, &item)
-        guard status == errSecSuccess, let data = item as? Data else {
-            return nil
-        }
+            var item: CFTypeRef?
+            let status = SecItemCopyMatching(query as CFDictionary, &item)
+            guard status == errSecSuccess, let data = item as? Data else {
+                return nil
+            }
 
-        return String(data: data, encoding: .utf8)?
-            .trimmingCharacters(in: .whitespacesAndNewlines)
+            return String(data: data, encoding: .utf8)?
+                .trimmingCharacters(in: .whitespacesAndNewlines)
         #else
-        return nil
+            return nil
         #endif
     }
 
-    private static func saveKeychainPassword(account: String, service: String, password: String) -> Bool {
+    private static func saveKeychainPassword(account: String, service: String, password: String)
+        -> Bool
+    {
         #if canImport(Security)
-        guard let data = password.data(using: .utf8) else {
-            return false
-        }
+            guard let data = password.data(using: .utf8) else {
+                return false
+            }
 
-        let query: [CFString: Any] = [
-            kSecClass: kSecClassGenericPassword,
-            kSecAttrService: service,
-            kSecAttrAccount: account,
-        ]
+            let query: [CFString: Any] = [
+                kSecClass: kSecClassGenericPassword,
+                kSecAttrService: service,
+                kSecAttrAccount: account,
+            ]
 
-        let attrs: [CFString: Any] = [
-            kSecValueData: data,
-        ]
+            let attrs: [CFString: Any] = [
+                kSecValueData: data
+            ]
 
-        let updateStatus = SecItemUpdate(query as CFDictionary, attrs as CFDictionary)
-        if updateStatus == errSecSuccess {
-            return true
-        }
+            let updateStatus = SecItemUpdate(query as CFDictionary, attrs as CFDictionary)
+            if updateStatus == errSecSuccess {
+                return true
+            }
 
-        var addQuery = query
-        addQuery[kSecValueData] = data
-        let addStatus = SecItemAdd(addQuery as CFDictionary, nil)
-        return addStatus == errSecSuccess
+            var addQuery = query
+            addQuery[kSecValueData] = data
+            let addStatus = SecItemAdd(addQuery as CFDictionary, nil)
+            return addStatus == errSecSuccess
         #else
-        return false
+            return false
         #endif
     }
 
@@ -321,20 +347,23 @@ enum IntegrationTestSupport {
             if let value = UserDefaults(suiteName: domain)?
                 .string(forKey: key)?
                 .trimmingCharacters(in: .whitespacesAndNewlines),
-               !value.isEmpty {
+                !value.isEmpty
+            {
                 return value
             }
         }
 
         let home = FileManager.default.homeDirectoryForCurrentUser
         for domain in actionStatusDefaultsDomains {
-            let url = home
+            let url =
+                home
                 .appendingPathComponent("Library", isDirectory: true)
                 .appendingPathComponent("Preferences", isDirectory: true)
                 .appendingPathComponent("\(domain).plist", isDirectory: false)
 
             if let dictionary = NSDictionary(contentsOf: url) as? [String: Any],
-               let raw = dictionary[key] as? String {
+                let raw = dictionary[key] as? String
+            {
                 let value = raw.trimmingCharacters(in: .whitespacesAndNewlines)
                 if !value.isEmpty {
                     return value
