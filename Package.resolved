@@ -1,6 +1,15 @@
 {
-  "originHash" : "4fa5dc7a5a52e666a90a7ac13bc1ae4c2a3febbf98be5497b6cb43e40f42adb8",
+  "originHash" : "a75f4029be9625e09791e613bd95efabf247755ab83b72d6f541995bf47c81f3",
   "pins" : [
+    {
+      "identity" : "jsonsession",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/elegantchaos/JSONSession.git",
+      "state" : {
+        "revision" : "50d07644d67bfc997877a682972867cc4bbd965b",
+        "version" : "2.0.0"
+      }
+    },
     {
       "identity" : "logger",
       "kind" : "remoteSourceControl",
