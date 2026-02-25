@@ -21,15 +21,24 @@ func liveEventsEndpointDecodesEvents() async throws {
     ]
 
     for repo in repos {
-        let session = IntegrationOctoidSession(token: configuration.token)
+        let session = Session(token: configuration.token)
+        let context = IntegrationContext()
         let resource = EventsResource(name: repo.name, owner: repo.owner)
+
         session.poll(
             target: resource,
-            processors: [EventsCaptureProcessor(), MessageProcessor<IntegrationOctoidSession>()],
+            context: context,
+            processors: processorGroup(
+                named: "events",
+                [
+                    EventsCaptureProcessor().eraseToAnyProcessor(),
+                    MessageProcessor<IntegrationContext>().eraseToAnyProcessor(),
+                ]
+            ),
             for: DispatchTime.now()
         )
 
-        let events = try await session.awaitEvents()
+        let events = try await context.awaitEvents()
         #expect(events.count >= 0)
     }
 }
@@ -51,19 +60,27 @@ func liveWorkflowRunsEndpointDecodesRuns() async throws {
     ]
 
     for repo in repos {
-        let session = IntegrationOctoidSession(token: configuration.token)
+        let session = Session(token: configuration.token)
+        let context = IntegrationContext()
 
         // Discover workflows first, then fetch runs using workflow ID to avoid filename/case guesses.
         let workflowsResource = WorkflowsResource(name: repo.name, owner: repo.owner)
         session.poll(
             target: workflowsResource,
-            processors: [WorkflowsCaptureProcessor(), MessageProcessor<IntegrationOctoidSession>()],
+            context: context,
+            processors: processorGroup(
+                named: "workflows",
+                [
+                    WorkflowsCaptureProcessor().eraseToAnyProcessor(),
+                    MessageProcessor<IntegrationContext>().eraseToAnyProcessor(),
+                ]
+            ),
             for: DispatchTime.now()
         )
 
-        let workflows = try await session.awaitWorkflows()
+        let workflows = try await context.awaitWorkflows()
         guard let discoveredWorkflow = workflows.preferredWorkflow else {
-            throw IntegrationTestError.noWorkflows(context: await session.requestContext())
+            throw IntegrationTestError.noWorkflows(context: await context.requestContext())
         }
 
         let resource = WorkflowResource(
@@ -73,13 +90,18 @@ func liveWorkflowRunsEndpointDecodesRuns() async throws {
         )
         session.poll(
             target: resource,
-            processors: [
-                WorkflowRunsCaptureProcessor(), MessageProcessor<IntegrationOctoidSession>(),
-            ],
+            context: context,
+            processors: processorGroup(
+                named: "workflow runs",
+                [
+                    WorkflowRunsCaptureProcessor().eraseToAnyProcessor(),
+                    MessageProcessor<IntegrationContext>().eraseToAnyProcessor(),
+                ]
+            ),
             for: DispatchTime.now()
         )
 
-        let runs = try await session.awaitRuns()
+        let runs = try await context.awaitRuns()
         #expect(runs.total_count >= 0)
     }
 }
@@ -101,15 +123,24 @@ func liveWorkflowsEndpointDecodesWorkflows() async throws {
     ]
 
     for repo in repos {
-        let session = IntegrationOctoidSession(token: configuration.token)
+        let session = Session(token: configuration.token)
+        let context = IntegrationContext()
         let resource = WorkflowsResource(name: repo.name, owner: repo.owner)
+
         session.poll(
             target: resource,
-            processors: [WorkflowsCaptureProcessor(), MessageProcessor<IntegrationOctoidSession>()],
+            context: context,
+            processors: processorGroup(
+                named: "workflows",
+                [
+                    WorkflowsCaptureProcessor().eraseToAnyProcessor(),
+                    MessageProcessor<IntegrationContext>().eraseToAnyProcessor(),
+                ]
+            ),
             for: DispatchTime.now()
         )
 
-        let workflows = try await session.awaitWorkflows()
+        let workflows = try await context.awaitWorkflows()
         #expect(workflows.total_count >= workflows.workflows.count)
     }
 }
@@ -124,17 +155,25 @@ func liveMissingWorkflowReturnsNotFoundMessage() async throws {
         return
     }
 
-    let session = IntegrationOctoidSession(token: configuration.token)
+    let session = Session(token: configuration.token)
+    let context = IntegrationContext()
     let missingWorkflow = "definitely-not-a-real-workflow-\(UUID().uuidString)"
     let resource = WorkflowResource(
         name: "Logger", owner: "elegantchaos", workflow: missingWorkflow)
     session.poll(
         target: resource,
-        processors: [WorkflowRunsCaptureProcessor(), MessageProcessor<IntegrationOctoidSession>()],
+        context: context,
+        processors: processorGroup(
+            named: "workflow runs",
+            [
+                WorkflowRunsCaptureProcessor().eraseToAnyProcessor(),
+                MessageProcessor<IntegrationContext>().eraseToAnyProcessor(),
+            ]
+        ),
         for: DispatchTime.now()
     )
 
-    let message = try await session.awaitMessage()
+    let message = try await context.awaitMessage()
     #expect(message.message == "Not Found")
 }
 
@@ -158,50 +197,63 @@ private struct RepoFixture {
     }
 }
 
-private struct EventsCaptureProcessor: JSONSession.Processor {
-    typealias SessionType = IntegrationOctoidSession
+private func processorGroup(
+    named name: String,
+    _ processors: [AnyProcessor<IntegrationContext>]
+) -> AnyProcessorGroup<IntegrationContext> {
+    AnyProcessorGroup(name: name, processors: processors)
+}
+
+private struct EventsCaptureProcessor: Processor {
+    typealias Context = IntegrationContext
     typealias Payload = Events
 
     let name = "events capture"
     let codes = [200]
 
     func process(
-        _ payload: Events, response: HTTPURLResponse, for request: JSONSession.Request,
-        in session: IntegrationOctoidSession
-    ) -> RepeatStatus {
-        session.capture(events: payload, response: response, request: request)
+        _ payload: Events,
+        response: HTTPURLResponse,
+        for request: Request<IntegrationContext>,
+        in context: IntegrationContext
+    ) async throws -> RepeatStatus {
+        await context.capture(events: payload, response: response, request: request)
         return .cancel
     }
 }
 
-private struct WorkflowRunsCaptureProcessor: JSONSession.Processor {
-    typealias SessionType = IntegrationOctoidSession
+private struct WorkflowRunsCaptureProcessor: Processor {
+    typealias Context = IntegrationContext
     typealias Payload = WorkflowRuns
 
-    let name = "workflow capture"
+    let name = "workflow runs capture"
     let codes = [200]
 
     func process(
-        _ payload: WorkflowRuns, response: HTTPURLResponse, for request: JSONSession.Request,
-        in session: IntegrationOctoidSession
-    ) -> RepeatStatus {
-        session.capture(runs: payload, response: response, request: request)
+        _ payload: WorkflowRuns,
+        response: HTTPURLResponse,
+        for request: Request<IntegrationContext>,
+        in context: IntegrationContext
+    ) async throws -> RepeatStatus {
+        await context.capture(runs: payload, response: response, request: request)
         return .cancel
     }
 }
 
-private struct WorkflowsCaptureProcessor: JSONSession.Processor {
-    typealias SessionType = IntegrationOctoidSession
+private struct WorkflowsCaptureProcessor: Processor {
+    typealias Context = IntegrationContext
     typealias Payload = Workflows
 
     let name = "workflows capture"
     let codes = [200]
 
     func process(
-        _ payload: Workflows, response: HTTPURLResponse, for request: JSONSession.Request,
-        in session: IntegrationOctoidSession
-    ) -> RepeatStatus {
-        session.capture(workflows: payload, response: response, request: request)
+        _ payload: Workflows,
+        response: HTTPURLResponse,
+        for request: Request<IntegrationContext>,
+        in context: IntegrationContext
+    ) async throws -> RepeatStatus {
+        await context.capture(workflows: payload, response: response, request: request)
         return .cancel
     }
 }
@@ -211,80 +263,43 @@ private struct IntegrationRequestContext {
     let statusCode: Int?
 }
 
-private actor IntegrationState {
-    var events: Events?
-    var runs: WorkflowRuns?
-    var workflows: Workflows?
-    var message: Message?
-    var lastRequestURL: URL?
-    var lastStatusCode: Int?
+private actor IntegrationContext: MessageReceiver {
+    private var events: Events?
+    private var runs: WorkflowRuns?
+    private var workflows: Workflows?
+    private var message: Message?
+    private var lastRequestURL: URL?
+    private var lastStatusCode: Int?
 
-    func set(events: Events) {
+    private let defaultTimeout: TimeInterval = 90
+
+    private func captureRequestContext(response: HTTPURLResponse) {
+        lastRequestURL = response.url
+        lastStatusCode = response.statusCode
+    }
+
+    func capture(events: Events, response: HTTPURLResponse, request _: Request<IntegrationContext>) {
+        captureRequestContext(response: response)
         self.events = events
     }
 
-    func set(runs: WorkflowRuns) {
+    func capture(runs: WorkflowRuns, response: HTTPURLResponse, request _: Request<IntegrationContext>) {
+        captureRequestContext(response: response)
         self.runs = runs
     }
 
-    func set(workflows: Workflows) {
+    func capture(workflows: Workflows, response: HTTPURLResponse, request _: Request<IntegrationContext>) {
+        captureRequestContext(response: response)
         self.workflows = workflows
     }
 
-    func set(message: Message) {
+    func received(
+        _ message: Message,
+        response: HTTPURLResponse,
+        for _: Request<IntegrationContext>
+    ) async -> RepeatStatus {
+        captureRequestContext(response: response)
         self.message = message
-    }
-
-    func set(requestURL: URL?, statusCode: Int) {
-        lastRequestURL = requestURL
-        lastStatusCode = statusCode
-    }
-
-    func requestContext() -> IntegrationRequestContext {
-        IntegrationRequestContext(url: lastRequestURL, statusCode: lastStatusCode)
-    }
-}
-
-private final class IntegrationOctoidSession: Octoid.Session, MessageReceiver {
-    private let state = IntegrationState()
-    private let defaultTimeout: TimeInterval = 90
-
-    private func captureRequestContext(request: JSONSession.Request, response: HTTPURLResponse) {
-        let path = request.resource.path(in: self)
-        let url = base.appendingPathComponent(path)
-        Task {
-            await state.set(requestURL: url, statusCode: response.statusCode)
-        }
-    }
-
-    func capture(events: Events, response: HTTPURLResponse, request: JSONSession.Request) {
-        captureRequestContext(request: request, response: response)
-        Task {
-            await state.set(events: events)
-        }
-    }
-
-    func capture(runs: WorkflowRuns, response: HTTPURLResponse, request: JSONSession.Request) {
-        captureRequestContext(request: request, response: response)
-        Task {
-            await state.set(runs: runs)
-        }
-    }
-
-    func capture(workflows: Workflows, response: HTTPURLResponse, request: JSONSession.Request) {
-        captureRequestContext(request: request, response: response)
-        Task {
-            await state.set(workflows: workflows)
-        }
-    }
-
-    func received(_ message: Message, response: HTTPURLResponse, for request: JSONSession.Request)
-        -> RepeatStatus
-    {
-        captureRequestContext(request: request, response: response)
-        Task {
-            await state.set(message: message)
-        }
         return .cancel
     }
 
@@ -292,68 +307,65 @@ private final class IntegrationOctoidSession: Octoid.Session, MessageReceiver {
         let timeout = timeout ?? defaultTimeout
         let expiry = Date().addingTimeInterval(timeout)
         while Date() < expiry {
-            if let message = await state.message {
-                throw IntegrationTestError.api(
-                    message.description, context: await state.requestContext())
+            if let message {
+                throw IntegrationTestError.api(message.description, context: requestContext())
             }
-            if let events = await state.events {
+            if let events {
                 return events
             }
             try await Task.sleep(nanoseconds: 100_000_000)
         }
 
-        throw IntegrationTestError.timeout(context: await state.requestContext())
+        throw IntegrationTestError.timeout(context: requestContext())
     }
 
     func awaitRuns(timeout: TimeInterval? = nil) async throws -> WorkflowRuns {
         let timeout = timeout ?? defaultTimeout
         let expiry = Date().addingTimeInterval(timeout)
         while Date() < expiry {
-            if let message = await state.message {
-                throw IntegrationTestError.api(
-                    message.description, context: await state.requestContext())
+            if let message {
+                throw IntegrationTestError.api(message.description, context: requestContext())
             }
-            if let runs = await state.runs {
+            if let runs {
                 return runs
             }
             try await Task.sleep(nanoseconds: 100_000_000)
         }
 
-        throw IntegrationTestError.timeout(context: await state.requestContext())
+        throw IntegrationTestError.timeout(context: requestContext())
     }
 
     func awaitWorkflows(timeout: TimeInterval? = nil) async throws -> Workflows {
         let timeout = timeout ?? defaultTimeout
         let expiry = Date().addingTimeInterval(timeout)
         while Date() < expiry {
-            if let message = await state.message {
-                throw IntegrationTestError.api(
-                    message.description, context: await state.requestContext())
+            if let message {
+                throw IntegrationTestError.api(message.description, context: requestContext())
             }
-            if let workflows = await state.workflows {
+            if let workflows {
                 return workflows
             }
             try await Task.sleep(nanoseconds: 100_000_000)
         }
 
-        throw IntegrationTestError.timeout(context: await state.requestContext())
+        throw IntegrationTestError.timeout(context: requestContext())
     }
 
     func awaitMessage(timeout: TimeInterval? = nil) async throws -> Message {
         let timeout = timeout ?? defaultTimeout
         let expiry = Date().addingTimeInterval(timeout)
         while Date() < expiry {
-            if let message = await state.message {
+            if let message {
                 return message
             }
             try await Task.sleep(nanoseconds: 100_000_000)
         }
 
-        throw IntegrationTestError.timeout(context: await state.requestContext())
+        throw IntegrationTestError.timeout(context: requestContext())
     }
 
-    func requestContext() async -> IntegrationRequestContext {
-        await state.requestContext()
+    func requestContext() -> IntegrationRequestContext {
+        IntegrationRequestContext(url: lastRequestURL, statusCode: lastStatusCode)
     }
 }
 

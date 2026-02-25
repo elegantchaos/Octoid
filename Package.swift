@@ -1,11 +1,11 @@
-// swift-tools-version:6.0
+// swift-tools-version:6.2
 
 import PackageDescription
 
 let package = Package(
     name: "Octoid",
     platforms: [
-        .macOS(.v10_15), .macCatalyst(.v13), .iOS(.v13), .tvOS(.v13), .watchOS(.v6)
+        .macOS(.v26), .macCatalyst(.v26), .iOS(.v26), .tvOS(.v26), .watchOS(.v11)
     ],
     products: [
         .library(
@@ -13,8 +13,8 @@ let package = Package(
             targets: ["Octoid"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/elegantchaos/Logger.git", from: "1.6.0"),
-        .package(url: "https://github.com/elegantchaos/JSONSession.git", from: "1.1.1"),
+        .package(url: "https://github.com/elegantchaos/Logger.git", from: "2.0.1"),
+        .package(path: "../JSONSession"),
     ],
     targets: [
         .target(
