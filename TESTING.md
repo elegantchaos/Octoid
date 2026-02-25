@@ -15,24 +15,23 @@ swift test
 
 Live tests are opt-in and automatically skip when credentials are unavailable.
 
-They read the same token entry that ActionStatus uses on macOS:
+These tests call the real GitHub API, so they require valid credentials with read access to the repositories being polled.
+
+Octoid reuses the same credential sources as ActionStatus on macOS:
 
 - Keychain service defaults to `api.github.com`.
 - Keychain account is the GitHub username from ActionStatus defaults (`GithubUser` in `com.elegantchaos.actionstatus`).
 
-### Environment Overrides
+If credentials are missing, set them up with:
 
-- `OCTOID_GITHUB_USER`: override username if ActionStatus defaults are unavailable.
-- `OCTOID_GITHUB_SERVER`: GitHub API host (default: `api.github.com`).
-- `OCTOID_TEST_OWNER`: repository owner used by live tests (default: `elegantchaos`).
-- `OCTOID_TEST_REPO`: repository name for repository-scoped tests (default: `Octoid`).
-- `OCTOID_TEST_WORKFLOW`: legacy workflow-name override retained for compatibility.
+```bash
+./Extras/Scripts/octoid-integration-signin
+```
 
-### Device Flow Sign-In (Optional)
+The script runs GitHub device-flow sign-in and stores credentials in your local keychain for subsequent test runs.
 
-If a token is missing, tests can optionally perform GitHub device-flow sign-in:
+After that, run tests normally:
 
-- `OCTOID_GITHUB_DEVICE_SIGNIN=1`
-- `OCTOID_GITHUB_CLIENT_ID=<client-id>`
-
-When enabled, tests print a verification URL and user code, then store retrieved credentials in the local keychain for reuse.
+```bash
+swift test
+```

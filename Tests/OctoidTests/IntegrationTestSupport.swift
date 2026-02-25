@@ -8,9 +8,6 @@ import Testing
 struct IntegrationConfiguration {
     let apiBaseURL: URL
     let token: String
-    let owner: String
-    let repository: String
-    let workflow: String
 }
 
 enum IntegrationConfigurationResult {
@@ -53,19 +50,15 @@ enum IntegrationTestSupport {
 
         guard let resolvedUser = user else {
             return .skipped(
-                "Missing GitHub user. Set OCTOID_GITHUB_USER, sign into ActionStatus, or run with OCTOID_GITHUB_DEVICE_SIGNIN=1 and OCTOID_GITHUB_CLIENT_ID=<client-id>."
+                "Missing GitHub user. Sign into ActionStatus or run Extras/Scripts/octoid-integration-signin."
             )
         }
 
         guard let resolvedToken = token else {
             return .skipped(
-                "No token in keychain for account '\(resolvedUser)' and service '\(server)'. Enable device sign-in with OCTOID_GITHUB_DEVICE_SIGNIN=1."
+                "No token in keychain for account '\(resolvedUser)' and service '\(server)'. Run Extras/Scripts/octoid-integration-signin."
             )
         }
-
-        let owner = ProcessInfo.processInfo.environment["OCTOID_TEST_OWNER"] ?? "elegantchaos"
-        let repository = ProcessInfo.processInfo.environment["OCTOID_TEST_REPO"] ?? "Octoid"
-        let workflow = ProcessInfo.processInfo.environment["OCTOID_TEST_WORKFLOW"] ?? "tests"
 
         guard let apiBaseURL = normalizedAPIBaseURL(from: server) else {
             return .skipped("Configured server '\(server)' is not a valid API host.")
@@ -74,10 +67,7 @@ enum IntegrationTestSupport {
         return .ready(
             IntegrationConfiguration(
                 apiBaseURL: apiBaseURL,
-                token: resolvedToken,
-                owner: owner,
-                repository: repository,
-                workflow: workflow
+                token: resolvedToken
             )
         )
     }
