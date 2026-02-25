@@ -52,6 +52,8 @@ func liveWorkflowRunsEndpointDecodesRuns() async throws {
 
     for repo in repos {
         let session = IntegrationOctoidSession(token: configuration.token)
+
+        // Discover workflows first, then fetch runs using workflow ID to avoid filename/case guesses.
         let workflowsResource = WorkflowsResource(name: repo.name, owner: repo.owner)
         session.poll(
             target: workflowsResource,
@@ -79,6 +81,36 @@ func liveWorkflowRunsEndpointDecodesRuns() async throws {
 
         let runs = try await session.awaitRuns()
         #expect(runs.total_count >= 0)
+    }
+}
+
+@Test
+func liveWorkflowsEndpointDecodesWorkflows() async throws {
+    guard let configuration = await liveConfiguration(for: #function) else {
+        return
+    }
+
+    guard configuration.apiBaseURL.host == "api.github.com" else {
+        return
+    }
+
+    let repos = [
+        RepoFixture(owner: "elegantchaos", name: "Logger"),
+        RepoFixture(owner: "elegantchaos", name: "ReleaseTools"),
+        RepoFixture(owner: "elegantchaos", name: "Stack"),
+    ]
+
+    for repo in repos {
+        let session = IntegrationOctoidSession(token: configuration.token)
+        let resource = WorkflowsResource(name: repo.name, owner: repo.owner)
+        session.poll(
+            target: resource,
+            processors: [WorkflowsCaptureProcessor(), MessageProcessor<IntegrationOctoidSession>()],
+            for: DispatchTime.now()
+        )
+
+        let workflows = try await session.awaitWorkflows()
+        #expect(workflows.total_count >= workflows.workflows.count)
     }
 }
 
@@ -215,6 +247,7 @@ private actor IntegrationState {
 
 private final class IntegrationOctoidSession: Octoid.Session, MessageReceiver {
     private let state = IntegrationState()
+    private let defaultTimeout: TimeInterval = 45
 
     private func captureRequestContext(request: JSONSession.Request, response: HTTPURLResponse) {
         let path = request.resource.path(in: self)
@@ -255,7 +288,8 @@ private final class IntegrationOctoidSession: Octoid.Session, MessageReceiver {
         return .cancel
     }
 
-    func awaitEvents(timeout: TimeInterval = 30) async throws -> Events {
+    func awaitEvents(timeout: TimeInterval? = nil) async throws -> Events {
+        let timeout = timeout ?? defaultTimeout
         let expiry = Date().addingTimeInterval(timeout)
         while Date() < expiry {
             if let message = await state.message {
@@ -271,7 +305,8 @@ private final class IntegrationOctoidSession: Octoid.Session, MessageReceiver {
         throw IntegrationTestError.timeout(context: await state.requestContext())
     }
 
-    func awaitRuns(timeout: TimeInterval = 30) async throws -> WorkflowRuns {
+    func awaitRuns(timeout: TimeInterval? = nil) async throws -> WorkflowRuns {
+        let timeout = timeout ?? defaultTimeout
         let expiry = Date().addingTimeInterval(timeout)
         while Date() < expiry {
             if let message = await state.message {
@@ -287,7 +322,8 @@ private final class IntegrationOctoidSession: Octoid.Session, MessageReceiver {
         throw IntegrationTestError.timeout(context: await state.requestContext())
     }
 
-    func awaitWorkflows(timeout: TimeInterval = 30) async throws -> Workflows {
+    func awaitWorkflows(timeout: TimeInterval? = nil) async throws -> Workflows {
+        let timeout = timeout ?? defaultTimeout
         let expiry = Date().addingTimeInterval(timeout)
         while Date() < expiry {
             if let message = await state.message {
@@ -303,7 +339,8 @@ private final class IntegrationOctoidSession: Octoid.Session, MessageReceiver {
         throw IntegrationTestError.timeout(context: await state.requestContext())
     }
 
-    func awaitMessage(timeout: TimeInterval = 30) async throws -> Message {
+    func awaitMessage(timeout: TimeInterval? = nil) async throws -> Message {
+        let timeout = timeout ?? defaultTimeout
         let expiry = Date().addingTimeInterval(timeout)
         while Date() < expiry {
             if let message = await state.message {
@@ -337,8 +374,8 @@ private enum IntegrationTestError: Error, LocalizedError {
     }
 }
 
-extension IntegrationRequestContext {
-    fileprivate var suffix: String {
+private extension IntegrationRequestContext {
+    var suffix: String {
         var fields: [String] = []
         if let url {
             fields.append("url=\(url.absoluteString)")

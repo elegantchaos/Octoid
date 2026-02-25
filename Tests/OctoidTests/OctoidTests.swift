@@ -78,6 +78,14 @@ func workflowResourcePathStripsYAMLExtension() {
 }
 
 @Test
+func workflowResourcePathStripsUppercaseYAMLExtension() {
+    let resource = WorkflowResource(name: "Logger", owner: "elegantchaos", workflow: "tests.YAML")
+    let session = Session(token: "test-token")
+
+    #expect(resource.path(in: session) == "repos/elegantchaos/Logger/actions/workflows/tests.yml/runs")
+}
+
+@Test
 func workflowResourcePathForAllWorkflows() {
     let resource = WorkflowResource.allWorkflows(name: "Logger", owner: "elegantchaos")
     let session = Session(token: "test-token")
@@ -91,6 +99,26 @@ func workflowResourcePathForWorkflowID() {
     let session = Session(token: "test-token")
 
     #expect(resource.path(in: session) == "repos/elegantchaos/Logger/actions/workflows/12345/runs")
+}
+
+@Test
+func workflowResourceDescriptionForNameAndExtensions() {
+    let named = WorkflowResource(name: "Logger", owner: "elegantchaos", workflow: "tests")
+    let withYML = WorkflowResource(name: "Logger", owner: "elegantchaos", workflow: "tests.yml")
+    let withYAML = WorkflowResource(name: "Logger", owner: "elegantchaos", workflow: "tests.yaml")
+
+    #expect(named.description == "elegantchaos/Logger tests.yml")
+    #expect(withYML.description == "elegantchaos/Logger tests.yml")
+    #expect(withYAML.description == "elegantchaos/Logger tests.yml")
+}
+
+@Test
+func workflowResourceDescriptionForIDAndAllWorkflows() {
+    let byID = WorkflowResource(name: "Logger", owner: "elegantchaos", workflowID: 12345)
+    let allWorkflows = WorkflowResource.allWorkflows(name: "Logger", owner: "elegantchaos")
+
+    #expect(byID.description == "elegantchaos/Logger workflow id 12345")
+    #expect(allWorkflows.description == "elegantchaos/Logger all workflows")
 }
 
 @Test

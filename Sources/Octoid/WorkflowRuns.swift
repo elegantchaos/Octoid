@@ -36,6 +36,8 @@ public struct WorkflowResource: ResourceResolver {
     let workflowID: Int?
     let normalizedWorkflow: String
     let includeAllWorkflows: Bool
+    private static let extensionStripWarning =
+        "Warning: workflow '%@' includes '.yml' or '.yaml'; stripping extension when building workflow runs path."
 
     public init(name: String, owner: String, workflow: String = "Tests") {
         self.name = name
@@ -81,22 +83,25 @@ public struct WorkflowResource: ResourceResolver {
     }
 
     static func normalized(workflow: String) -> String {
+        if let stripped = strippedWorkflowName(workflow) {
+            octoidChannel.log(String(format: extensionStripWarning, workflow))
+            return stripped
+        }
+
+        return workflow
+    }
+
+    private static func strippedWorkflowName(_ workflow: String) -> String? {
         let lowercaseWorkflow = workflow.lowercased()
         if lowercaseWorkflow.hasSuffix(".yaml") {
-            octoidChannel.log(
-                "Warning: workflow '\(workflow)' includes '.yml' or '.yaml'; stripping extension when building workflow runs path."
-            )
             return String(workflow.dropLast(5))
         }
 
         if lowercaseWorkflow.hasSuffix(".yml") {
-            octoidChannel.log(
-                "Warning: workflow '\(workflow)' includes '.yml' or '.yaml'; stripping extension when building workflow runs path."
-            )
             return String(workflow.dropLast(4))
         }
 
-        return workflow
+        return nil
     }
 }
 
