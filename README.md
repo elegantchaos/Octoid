@@ -16,27 +16,22 @@
 
 # Octoid
 
-Swift module with just enough Github API support to do what I need.
+Swift module with just enough GitHub API support for ActionStatus and related tooling.
 
 I'm not even slightly pretending that this is good enough for general purpose use.
 
-## Integration Tests
+## Design
 
-Live GitHub integration tests are opt-in and read the same token entry that ActionStatus uses on macOS.
+Octoid is intentionally small and built around a few simple ideas:
 
-- Keychain service defaults to `api.github.com`.
-- Keychain account is the GitHub username from ActionStatus defaults (`GithubUser` in `com.elegantchaos.actionstatus`).
+- **Small API models**: lightweight `Codable` value types for the GitHub payloads ActionStatus needs (`Event`, `WorkflowRun`, `Workflow`, etc).
+- **Resource resolvers**: each endpoint is represented by a `ResourceResolver` that builds the request path (`EventsResource`, `WorkflowResource`, `WorkflowsResource`).
+- **Polling session**: `Octoid.Session` wraps `JSONSession.Session` with GitHub defaults (base URL and bearer token usage).
+- **Composable processors**: response handling is split into processors (`MessageProcessor`, `UnchangedProcessor`, custom test processors), so success/error/unchanged behavior can be composed explicitly.
+- **Opt-in workflow discovery**: callers can discover workflows first (`WorkflowsResource`) and then request runs by workflow ID, avoiding fragile filename assumptions.
 
-Optional overrides:
+The package prefers focused behavior over broad API coverage, and aims to keep public surface area small and explicit.
 
-- `OCTOID_GITHUB_USER` (override username if ActionStatus defaults are unavailable)
-- `OCTOID_GITHUB_SERVER` (default: `api.github.com`)
-- `OCTOID_TEST_OWNER` (default: `elegantchaos`)
-- `OCTOID_TEST_REPO` (default: `Octoid`)
-- `OCTOID_TEST_WORKFLOW` (default: `Tests`)
+## Testing
 
-Run tests with:
-
-```bash
-swift test
-```
+Testing setup, live integration-test configuration, and environment variables are documented in [TESTING.md](TESTING.md).
