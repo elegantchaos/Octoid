@@ -343,23 +343,25 @@ enum IntegrationTestSupport {
             }
         }
 
-        let home = FileManager.default.homeDirectoryForCurrentUser
-        for domain in actionStatusDefaultsDomains {
-            let url =
-                home
-                .appendingPathComponent("Library", isDirectory: true)
-                .appendingPathComponent("Preferences", isDirectory: true)
-                .appendingPathComponent("\(domain).plist", isDirectory: false)
+        #if os(macOS)
+            let home = FileManager.default.homeDirectoryForCurrentUser
+            for domain in actionStatusDefaultsDomains {
+                let url =
+                    home
+                    .appendingPathComponent("Library", isDirectory: true)
+                    .appendingPathComponent("Preferences", isDirectory: true)
+                    .appendingPathComponent("\(domain).plist", isDirectory: false)
 
-            if let dictionary = NSDictionary(contentsOf: url) as? [String: Any],
-                let raw = dictionary[key] as? String
-            {
-                let value = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-                if !value.isEmpty {
-                    return value
+                if let dictionary = NSDictionary(contentsOf: url) as? [String: Any],
+                    let raw = dictionary[key] as? String
+                {
+                    let value = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !value.isEmpty {
+                        return value
+                    }
                 }
             }
-        }
+        #endif
 
         return nil
     }
