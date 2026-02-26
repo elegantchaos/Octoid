@@ -1,13 +1,13 @@
 {
-  "originHash" : "1170d15696e7a5e799668afe9d876f71394c22fa81dbbb74fc63b38a159bb226",
+  "originHash" : "cb23722dfe242328de81ee52d8d34c47ee204773ad70749178fd2b39f20e904a",
   "pins" : [
     {
       "identity" : "actionbuildercore",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/elegantchaos/ActionBuilderCore.git",
       "state" : {
-        "revision" : "d0a8c31e05d18bd3031b2d1a672b0c8342565442",
-        "version" : "2.1.4"
+        "revision" : "29e291e23f4663561850fff5e697d22e16beaf89",
+        "version" : "2.1.6"
       }
     },
     {
@@ -15,14 +15,14 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/elegantchaos/ActionBuilderPlugin.git",
       "state" : {
-        "revision" : "fa62740e8b499a4b875169346e79081ccd460c1f",
-        "version" : "2.1.1"
+        "revision" : "ab922ba25d0e576ba20744936d9e6a992b127f0b",
+        "version" : "2.1.2"
       }
     },
     {
       "identity" : "chaosbytestreams",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/elegantchaos/ChaosByteStreams.git",
+      "location" : "https://github.com/elegantchaos/ChaosByteStreams",
       "state" : {
         "revision" : "01cc58b8d9a01d67ee6669b67db41b2060ea467b",
         "version" : "1.0.7"
