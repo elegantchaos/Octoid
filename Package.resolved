@@ -1,13 +1,13 @@
 {
-  "originHash" : "9e215d777e22b58126122e45282f389dd079877f13688c176561ced150a607b5",
+  "originHash" : "1170d15696e7a5e799668afe9d876f71394c22fa81dbbb74fc63b38a159bb226",
   "pins" : [
     {
       "identity" : "actionbuildercore",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/elegantchaos/ActionBuilderCore.git",
       "state" : {
-        "revision" : "be27f0c4b0f3f95390b8bf0f7b9346357e0c9880",
-        "version" : "2.1.2"
+        "revision" : "d0a8c31e05d18bd3031b2d1a672b0c8342565442",
+        "version" : "2.1.4"
       }
     },
     {
@@ -15,8 +15,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/elegantchaos/ActionBuilderPlugin.git",
       "state" : {
-        "revision" : "7c2f45813e5172534c6ab5ca0ddc64c53f6fc869",
-        "version" : "2.1.0"
+        "revision" : "fa62740e8b499a4b875169346e79081ccd460c1f",
+        "version" : "2.1.1"
       }
     },
     {
