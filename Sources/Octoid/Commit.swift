@@ -6,7 +6,7 @@
 import Foundation
 
 /// Commit summary data included in event payloads.
-public struct Commit: Codable {
+public struct Commit: Codable, Sendable {
     /// Commit author details.
     let author: Author
     /// Commit message text.
@@ -20,7 +20,7 @@ public struct Commit: Codable {
 }
 
 /// Detailed commit information attached to workflow runs.
-public struct HeadCommit: Codable {
+public struct HeadCommit: Codable, Sendable {
     /// Commit SHA.
     let id: String
     /// Tree object SHA.

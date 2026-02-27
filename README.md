@@ -16,7 +16,7 @@
 
 # Octoid
 
-Octoid is a focused Swift package that provides the GitHub API models and polling helpers used by ActionStatus.
+Octoid is a focused Swift package that provides GitHub API models and repository update streams used by ActionStatus.
 
 ## What It Includes
 
@@ -29,8 +29,11 @@ Octoid is a focused Swift package that provides the GitHub API models and pollin
   - `EventsResource`
   - `WorkflowsResource`
   - `WorkflowResource`
-- Polling helpers built on `JSONSession` 2.x:
-  - `Session` (Octoid wrapper around `JSONSession.Session`)
+- Polling helpers built on `JSONSession` 3.x:
+  - `Session.repositoryUpdates(...)`
+  - `RepositoryReference`
+  - `RepositoryPollConfiguration`
+  - `RepositoryUpdate`
   - `MessageProcessor`
   - `UnchangedProcessor`
   - `MessageReceiver`
@@ -51,7 +54,7 @@ Add Octoid to your package dependencies:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/elegantchaos/Octoid.git", from: "1.0.0")
+    .package(url: "https://github.com/elegantchaos/Octoid.git", from: "3.0.0")
 ]
 ```
 
@@ -59,65 +62,37 @@ Then add `Octoid` to the target dependencies that need it.
 
 ## Quick Start
 
-Create an Octoid session and poll a resource with a typed context and processor group.
+Create a JSONSession session and consume Octoid's repository update stream.
 
 ```swift
 import Foundation
-import JSONSession
 import Octoid
 
-actor EventsContext: MessageReceiver {
-    private(set) var events: Events?
-    private(set) var message: Message?
+import JSONSession
 
-    func capture(events: Events) {
-        self.events = events
-    }
-
-    func received(
-        _ message: Message,
-        response: HTTPURLResponse,
-        for _: Request<EventsContext>
-    ) async -> RepeatStatus {
-        self.message = message
-        return .cancel
-    }
-}
-
-struct EventsCaptureProcessor: Processor {
-    typealias Context = EventsContext
-    typealias Payload = Events
-
-    let name = "events"
-    let codes = [200]
-
-    func process(
-        _ payload: Events,
-        response: HTTPURLResponse,
-        for _: Request<EventsContext>,
-        in context: EventsContext
-    ) async throws -> RepeatStatus {
-        await context.capture(events: payload)
-        return .cancel
-    }
-}
-
-let session = Session(token: githubToken)
-let context = EventsContext()
-let resource = EventsResource(name: "Octoid", owner: "elegantchaos")
-
-session.poll(
-    target: resource,
-    context: context,
-    processors: AnyProcessorGroup(
-        name: "events",
-        processors: [
-            EventsCaptureProcessor().eraseToAnyProcessor(),
-            MessageProcessor<EventsContext>().eraseToAnyProcessor(),
-        ]
-    ),
-    for: .now()
+let session = Session(
+  base: URL(string: "https://api.github.com")!,
+  token: githubToken
 )
+let stream = session.repositoryUpdates(
+  for: RepositoryReference(owner: "elegantchaos", name: "Octoid"),
+  configuration: RepositoryPollConfiguration(interval: .seconds(60))
+)
+
+for await update in stream {
+  switch update {
+  case .events(let events):
+    print("events: \(events.count)")
+  case .workflows(let workflows):
+    print("workflows: \(workflows.total_count)")
+  case .workflowRuns(let target, let runs):
+    print("runs for \(target.name): \(runs.total_count)")
+  case .message(_, let message):
+    print("api message: \(message)")
+  case .transportError(_, let description):
+    print("transport error: \(description)")
+  }
+}
 ```
 
 ## Workflow Runs

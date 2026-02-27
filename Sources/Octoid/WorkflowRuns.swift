@@ -7,7 +7,7 @@ import Foundation
 import JSONSession
 
 /// GitHub workflow runs payload for a repository or specific workflow.
-public struct WorkflowRuns: Codable {
+public struct WorkflowRuns: Codable, Sendable {
     /// Number of runs reported by GitHub.
     let total_count: Int
     /// Decoded workflow run list.
@@ -28,7 +28,7 @@ public struct WorkflowRuns: Codable {
 }
 
 /// Metadata describing a single GitHub Actions workflow run.
-public struct WorkflowRun: Codable {
+public struct WorkflowRun: Codable, Sendable {
     /// Numeric run identifier.
     let id: Int
     /// Monotonic run number for the workflow.
@@ -44,7 +44,7 @@ public struct WorkflowRun: Codable {
 
 /// Resource resolver for workflow-runs endpoints.
 /// Supports lookup by workflow file name, workflow ID, or across all workflows.
-public struct WorkflowResource: ResourceResolver {
+public struct WorkflowResource: ResourceResolver, Sendable {
     /// Repository name.
     public let name: String
     /// Repository owner.
@@ -97,16 +97,14 @@ public struct WorkflowResource: ResourceResolver {
     }
 
     /// API path for the configured workflow runs endpoint.
-    public func path(in session: JSONSession.Session) -> String {
+    public var path: String {
         if includeAllWorkflows {
-            return "repos/\(owner)/\(name)/actions/runs"
+            "repos/\(owner)/\(name)/actions/runs"
+        } else if let workflowID {
+            "repos/\(owner)/\(name)/actions/workflows/\(workflowID)/runs"
+        } else {
+            "repos/\(owner)/\(name)/actions/workflows/\(normalizedWorkflow).yml/runs"
         }
-
-        if let workflowID {
-            return "repos/\(owner)/\(name)/actions/workflows/\(workflowID)/runs"
-        }
-
-        return "repos/\(owner)/\(name)/actions/workflows/\(normalizedWorkflow).yml/runs"
     }
 
     /// Normalizes supported workflow file suffixes before composing endpoint paths.

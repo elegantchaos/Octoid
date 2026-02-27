@@ -25,7 +25,7 @@ func liveEventsEndpointDecodesEvents() async throws {
         let context = IntegrationContext()
         let resource = EventsResource(name: repo.name, owner: repo.owner)
 
-        session.poll(
+        await session.request(
             target: resource,
             context: context,
             processors: processorGroup(
@@ -34,8 +34,7 @@ func liveEventsEndpointDecodesEvents() async throws {
                     EventsCaptureProcessor().eraseToAnyProcessor(),
                     MessageProcessor<IntegrationContext>().eraseToAnyProcessor(),
                 ]
-            ),
-            for: DispatchTime.now()
+            )
         )
 
         let events = try await context.awaitEvents()
@@ -65,7 +64,7 @@ func liveWorkflowRunsEndpointDecodesRuns() async throws {
 
         // Discover workflows first, then fetch runs using workflow ID to avoid filename/case guesses.
         let workflowsResource = WorkflowsResource(name: repo.name, owner: repo.owner)
-        session.poll(
+        await session.request(
             target: workflowsResource,
             context: context,
             processors: processorGroup(
@@ -74,8 +73,7 @@ func liveWorkflowRunsEndpointDecodesRuns() async throws {
                     WorkflowsCaptureProcessor().eraseToAnyProcessor(),
                     MessageProcessor<IntegrationContext>().eraseToAnyProcessor(),
                 ]
-            ),
-            for: DispatchTime.now()
+            )
         )
 
         let workflows = try await context.awaitWorkflows()
@@ -88,7 +86,7 @@ func liveWorkflowRunsEndpointDecodesRuns() async throws {
             owner: repo.owner,
             workflowID: discoveredWorkflow.id
         )
-        session.poll(
+        await session.request(
             target: resource,
             context: context,
             processors: processorGroup(
@@ -97,8 +95,7 @@ func liveWorkflowRunsEndpointDecodesRuns() async throws {
                     WorkflowRunsCaptureProcessor().eraseToAnyProcessor(),
                     MessageProcessor<IntegrationContext>().eraseToAnyProcessor(),
                 ]
-            ),
-            for: DispatchTime.now()
+            )
         )
 
         let runs = try await context.awaitRuns()
@@ -127,7 +124,7 @@ func liveWorkflowsEndpointDecodesWorkflows() async throws {
         let context = IntegrationContext()
         let resource = WorkflowsResource(name: repo.name, owner: repo.owner)
 
-        session.poll(
+        await session.request(
             target: resource,
             context: context,
             processors: processorGroup(
@@ -136,8 +133,7 @@ func liveWorkflowsEndpointDecodesWorkflows() async throws {
                     WorkflowsCaptureProcessor().eraseToAnyProcessor(),
                     MessageProcessor<IntegrationContext>().eraseToAnyProcessor(),
                 ]
-            ),
-            for: DispatchTime.now()
+            )
         )
 
         let workflows = try await context.awaitWorkflows()
@@ -160,7 +156,7 @@ func liveMissingWorkflowReturnsNotFoundMessage() async throws {
     let missingWorkflow = "definitely-not-a-real-workflow-\(UUID().uuidString)"
     let resource = WorkflowResource(
         name: "Logger", owner: "elegantchaos", workflow: missingWorkflow)
-    session.poll(
+    await session.request(
         target: resource,
         context: context,
         processors: processorGroup(
@@ -169,8 +165,7 @@ func liveMissingWorkflowReturnsNotFoundMessage() async throws {
                 WorkflowRunsCaptureProcessor().eraseToAnyProcessor(),
                 MessageProcessor<IntegrationContext>().eraseToAnyProcessor(),
             ]
-        ),
-        for: DispatchTime.now()
+        )
     )
 
     let message = try await context.awaitMessage()

@@ -4,7 +4,7 @@
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
 /// Metadata describing the GitHub account that triggered an event.
-public struct Actor: Codable {
+public struct Actor: Codable, Sendable {
     /// Display name shown for the account.
     let display_login: String
     /// Numeric GitHub account identifier.
@@ -20,7 +20,7 @@ public struct Actor: Codable {
 }
 
 /// Metadata describing a GitHub organization associated with an event.
-public struct Org: Codable {
+public struct Org: Codable, Sendable {
     /// Numeric GitHub organization identifier.
     let id: Int
     /// GitHub organization login.

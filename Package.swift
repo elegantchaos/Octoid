@@ -14,7 +14,7 @@ let package = Package(
   ],
   dependencies: [
     .package(url: "https://github.com/elegantchaos/Logger.git", from: "2.0.1"),
-    .package(url: "https://github.com/elegantchaos/JSONSession.git", from: "2.0.0"),
+    .package(path: "../JSONSession"),
     .package(url: "https://github.com/elegantchaos/ActionBuilderPlugin.git", from: "2.1.2"),
   ],
   targets: [
