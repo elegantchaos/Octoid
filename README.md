@@ -16,7 +16,9 @@
 
 # Octoid
 
-Octoid is a focused Swift package that provides GitHub API models and repository update streams used by ActionStatus.
+Swift module with just enough GitHub API support for ActionStatus and related tooling.
+
+I'm not even slightly pretending that this is good enough for general purpose use.
 
 ## What It Includes
 

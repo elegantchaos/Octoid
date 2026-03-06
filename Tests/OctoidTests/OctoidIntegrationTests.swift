@@ -25,7 +25,7 @@ func liveEventsEndpointDecodesEvents() async throws {
         let context = IntegrationContext()
         let resource = EventsResource(name: repo.name, owner: repo.owner)
 
-        await session.request(
+        _ = await session.request(
             target: resource,
             context: context,
             processors: processorGroup(
@@ -64,7 +64,7 @@ func liveWorkflowRunsEndpointDecodesRuns() async throws {
 
         // Discover workflows first, then fetch runs using workflow ID to avoid filename/case guesses.
         let workflowsResource = WorkflowsResource(name: repo.name, owner: repo.owner)
-        await session.request(
+        _ = await session.request(
             target: workflowsResource,
             context: context,
             processors: processorGroup(
@@ -86,7 +86,7 @@ func liveWorkflowRunsEndpointDecodesRuns() async throws {
             owner: repo.owner,
             workflowID: discoveredWorkflow.id
         )
-        await session.request(
+        _ = await session.request(
             target: resource,
             context: context,
             processors: processorGroup(
@@ -124,7 +124,7 @@ func liveWorkflowsEndpointDecodesWorkflows() async throws {
         let context = IntegrationContext()
         let resource = WorkflowsResource(name: repo.name, owner: repo.owner)
 
-        await session.request(
+        _ = await session.request(
             target: resource,
             context: context,
             processors: processorGroup(
@@ -156,7 +156,7 @@ func liveMissingWorkflowReturnsNotFoundMessage() async throws {
     let missingWorkflow = "definitely-not-a-real-workflow-\(UUID().uuidString)"
     let resource = WorkflowResource(
         name: "Logger", owner: "elegantchaos", workflow: missingWorkflow)
-    await session.request(
+    _ = await session.request(
         target: resource,
         context: context,
         processors: processorGroup(
