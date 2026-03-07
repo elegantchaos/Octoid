@@ -165,9 +165,33 @@ jobs:
             source "setup.sh"
             xcodebuild -downloadPlatform iOS > logs/download-iOS.log
             xcodebuild -workspace "$WORKSPACE" -scheme "$SCHEME" -showdestinations > logs/destinations-iOS.log
-            DESTINATION=$(cat logs/destinations-iOS.log | grep "platform:iOS Simulator" | grep "name:iPhone" | head -n 1 | awk -F" }" '{print$1}' | awk -F"name:" '{print$2}')
-            echo "Testing workspace $WORKSPACE scheme $SCHEME on $DESTINATION."
-            xcodebuild test -workspace "$WORKSPACE" -scheme "$SCHEME" -destination "name=$DESTINATION" -configuration Release CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO ENABLE_TESTABILITY=YES | tee logs/xcodebuild-iOS-test-release.log | xcbeautify --quiet --disable-logging --renderer github-actions
+            BEST_DESTINATION=$(awk '
+              /platform:iOS Simulator, id:/ && /name:iPhone/ && $0 !~ /unavailable/ {
+                id = ""
+                os = ""
+                name = ""
+                if (match($0, /id:[[:space:]]*([^,}]+)/, m)) id = m[1]
+                if (match($0, /OS:[[:space:]]*([^,}]+)/, m)) os = m[1]
+                if (match($0, /name:[[:space:]]*([^,}]+)/, m)) name = m[1]
+                if (id == "" || os == "" || tolower(os) ~ /beta/) next
+                split(os, v, ".")
+                major = v[1] + 0
+                minor = (v[2] == "" ? 0 : v[2] + 0)
+                patch = (v[3] == "" ? 0 : v[3] + 0)
+                printf "%d\t%d\t%d\t%s\t%s\t%s\n", major, minor, patch, os, id, name
+              }
+            ' logs/destinations-iOS.log | sort -k1,1nr -k2,2nr -k3,3nr | head -n 1)
+            DESTINATION_OS=$(echo "$BEST_DESTINATION" | awk -F"\t" '{print $4}' | xargs)
+            DESTINATION_ID=$(echo "$BEST_DESTINATION" | awk -F"\t" '{print $5}' | xargs)
+            DESTINATION_NAME=$(echo "$BEST_DESTINATION" | awk -F"\t" '{print $6}' | xargs)
+            if [[ "$DESTINATION_ID" == "" ]]
+            then
+              echo "::error::No available non-beta iPhone simulator destination found."
+              cat logs/destinations-iOS.log
+              exit 1
+            fi
+            echo "Testing workspace $WORKSPACE scheme $SCHEME on ${DESTINATION_NAME:-unknown} (iOS ${DESTINATION_OS:-unknown}, $DESTINATION_ID)."
+            xcodebuild test -workspace "$WORKSPACE" -scheme "$SCHEME" -destination "id=$DESTINATION_ID" -configuration Release CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO ENABLE_TESTABILITY=YES | tee logs/xcodebuild-iOS-test-release.log | xcbeautify --quiet --disable-logging --renderer github-actions
         - name: Detect Workspace & Scheme (tvOS)
           run: |
             WORKSPACE="Octoid.xcworkspace"
@@ -191,9 +215,33 @@ jobs:
             source "setup.sh"
             xcodebuild -downloadPlatform tvOS > logs/download-tvOS.log
             xcodebuild -workspace "$WORKSPACE" -scheme "$SCHEME" -showdestinations > logs/destinations-tvOS.log
-            DESTINATION=$(cat logs/destinations-tvOS.log | grep "platform:tvOS Simulator" | grep "name:Apple TV" | head -n 1 | awk -F" }" '{print$1}' | awk -F"name:" '{print$2}')
-            echo "Testing workspace $WORKSPACE scheme $SCHEME on $DESTINATION."
-            xcodebuild test -workspace "$WORKSPACE" -scheme "$SCHEME" -destination "name=$DESTINATION" -configuration Release CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO ENABLE_TESTABILITY=YES | tee logs/xcodebuild-tvOS-test-release.log | xcbeautify --quiet --disable-logging --renderer github-actions
+            BEST_DESTINATION=$(awk '
+              /platform:tvOS Simulator, id:/ && /name:Apple TV/ && $0 !~ /unavailable/ {
+                id = ""
+                os = ""
+                name = ""
+                if (match($0, /id:[[:space:]]*([^,}]+)/, m)) id = m[1]
+                if (match($0, /OS:[[:space:]]*([^,}]+)/, m)) os = m[1]
+                if (match($0, /name:[[:space:]]*([^,}]+)/, m)) name = m[1]
+                if (id == "" || os == "" || tolower(os) ~ /beta/) next
+                split(os, v, ".")
+                major = v[1] + 0
+                minor = (v[2] == "" ? 0 : v[2] + 0)
+                patch = (v[3] == "" ? 0 : v[3] + 0)
+                printf "%d\t%d\t%d\t%s\t%s\t%s\n", major, minor, patch, os, id, name
+              }
+            ' logs/destinations-tvOS.log | sort -k1,1nr -k2,2nr -k3,3nr | head -n 1)
+            DESTINATION_OS=$(echo "$BEST_DESTINATION" | awk -F"\t" '{print $4}' | xargs)
+            DESTINATION_ID=$(echo "$BEST_DESTINATION" | awk -F"\t" '{print $5}' | xargs)
+            DESTINATION_NAME=$(echo "$BEST_DESTINATION" | awk -F"\t" '{print $6}' | xargs)
+            if [[ "$DESTINATION_ID" == "" ]]
+            then
+              echo "::error::No available non-beta Apple TV simulator destination found."
+              cat logs/destinations-tvOS.log
+              exit 1
+            fi
+            echo "Testing workspace $WORKSPACE scheme $SCHEME on ${DESTINATION_NAME:-unknown} (tvOS ${DESTINATION_OS:-unknown}, $DESTINATION_ID)."
+            xcodebuild test -workspace "$WORKSPACE" -scheme "$SCHEME" -destination "id=$DESTINATION_ID" -configuration Release CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO ENABLE_TESTABILITY=YES | tee logs/xcodebuild-tvOS-test-release.log | xcbeautify --quiet --disable-logging --renderer github-actions
         - name: Detect Workspace & Scheme (watchOS)
           run: |
             WORKSPACE="Octoid.xcworkspace"
@@ -217,13 +265,36 @@ jobs:
             source "setup.sh"
             xcodebuild -downloadPlatform watchOS > logs/download-watchOS.log
             xcodebuild -workspace "$WORKSPACE" -scheme "$SCHEME" -showdestinations > logs/destinations-watchOS.log
-            DESTINATION=$(cat logs/destinations-watchOS.log | grep "platform:watchOS Simulator" | grep "name:Apple Watch" | head -n 1 | awk -F" }" '{print$1}' | awk -F"name:" '{print$2}')
-            echo "Building workspace $WORKSPACE scheme $SCHEME."
-            xcodebuild clean build -workspace "$WORKSPACE" -scheme "$SCHEME" -destination "name=$DESTINATION" -configuration Release CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO ENABLE_TESTABILITY=YES | tee logs/xcodebuild-watchOS-build-release.log | xcbeautify --quiet --disable-logging --renderer github-actions
+            BEST_DESTINATION=$(awk '
+              /platform:watchOS Simulator, id:/ && /name:Apple Watch/ && $0 !~ /unavailable/ {
+                id = ""
+                os = ""
+                name = ""
+                if (match($0, /id:[[:space:]]*([^,}]+)/, m)) id = m[1]
+                if (match($0, /OS:[[:space:]]*([^,}]+)/, m)) os = m[1]
+                if (match($0, /name:[[:space:]]*([^,}]+)/, m)) name = m[1]
+                if (id == "" || os == "" || tolower(os) ~ /beta/) next
+                split(os, v, ".")
+                major = v[1] + 0
+                minor = (v[2] == "" ? 0 : v[2] + 0)
+                patch = (v[3] == "" ? 0 : v[3] + 0)
+                printf "%d\t%d\t%d\t%s\t%s\t%s\n", major, minor, patch, os, id, name
+              }
+            ' logs/destinations-watchOS.log | sort -k1,1nr -k2,2nr -k3,3nr | head -n 1)
+            DESTINATION_OS=$(echo "$BEST_DESTINATION" | awk -F"\t" '{print $4}' | xargs)
+            DESTINATION_ID=$(echo "$BEST_DESTINATION" | awk -F"\t" '{print $5}' | xargs)
+            DESTINATION_NAME=$(echo "$BEST_DESTINATION" | awk -F"\t" '{print $6}' | xargs)
+            if [[ "$DESTINATION_ID" == "" ]]
+            then
+              echo "::error::No available non-beta Apple Watch simulator destination found."
+              cat logs/destinations-watchOS.log
+              exit 1
+            fi
+            echo "Building workspace $WORKSPACE scheme $SCHEME on ${DESTINATION_NAME:-unknown} (watchOS ${DESTINATION_OS:-unknown}, $DESTINATION_ID)."
+            xcodebuild clean build -workspace "$WORKSPACE" -scheme "$SCHEME" -destination "id=$DESTINATION_ID" -configuration Release CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO ENABLE_TESTABILITY=YES | tee logs/xcodebuild-watchOS-build-release.log | xcbeautify --quiet --disable-logging --renderer github-actions
         - name: Upload Logs
           uses: actions/upload-artifact@v4
           if: always()
           with:
             name: xcode-swift62-logs
             path: logs
-
