@@ -172,6 +172,49 @@ func liveMissingWorkflowReturnsNotFoundMessage() async throws {
     #expect(message.message == "Not Found")
 }
 
+@Test
+func liveRepositoryUpdatesStreamEmitsWorkflowAndRunUpdates() async throws {
+    guard let configuration = await liveConfiguration(for: #function) else {
+        return
+    }
+
+    guard configuration.apiBaseURL.host == "api.github.com" else {
+        return
+    }
+
+    let session = JSONSession.Session(base: configuration.apiBaseURL, token: configuration.token)
+    let stream = session.repositoryUpdates(
+        for: RepositoryReference(owner: "elegantchaos", name: "Logger"),
+        configuration: RepositoryPollConfiguration(interval: .seconds(1), pollEvents: false, pollWorkflows: true)
+    )
+
+    let updates = await collectRepositoryUpdates(from: stream, count: 2, timeout: .seconds(12)) { update in
+        switch update {
+        case .workflows, .workflowRuns:
+            return true
+        case .events, .message, .transportError:
+            return false
+        }
+    }
+
+    let hasWorkflows = updates.contains { update in
+        if case .workflows = update {
+            return true
+        }
+        return false
+    }
+
+    let hasWorkflowRuns = updates.contains { update in
+        if case .workflowRuns = update {
+            return true
+        }
+        return false
+    }
+
+    #expect(hasWorkflows)
+    #expect(hasWorkflowRuns)
+}
+
 private func liveConfiguration(for testName: String) async -> IntegrationConfiguration? {
     switch await IntegrationTestSupport.configurationResult() {
     case .ready(let configuration):
@@ -197,6 +240,35 @@ private func processorGroup(
     _ processors: [AnyProcessor<IntegrationContext>]
 ) -> AnyProcessorGroup<IntegrationContext> {
     AnyProcessorGroup(name: name, processors: processors)
+}
+
+private func collectRepositoryUpdates(
+    from stream: AsyncStream<RepositoryUpdate>,
+    count: Int,
+    timeout: Duration,
+    matching predicate: @escaping @Sendable (RepositoryUpdate) -> Bool
+) async -> [RepositoryUpdate] {
+    let collector = Task<[RepositoryUpdate], Never> {
+        var collected: [RepositoryUpdate] = []
+        for await update in stream {
+            if predicate(update) {
+                collected.append(update)
+            }
+            if collected.count >= count {
+                break
+            }
+        }
+        return collected
+    }
+
+    let timeoutTask = Task {
+        try? await Task.sleep(for: timeout)
+        collector.cancel()
+    }
+
+    let updates = await collector.value
+    timeoutTask.cancel()
+    return updates
 }
 
 private struct EventsCaptureProcessor: Processor {
