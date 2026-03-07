@@ -79,49 +79,37 @@ func workflowDecodingAllowsNullHeadCommit() throws {
 @Test
 func workflowResourcePathForBareWorkflowName() {
     let resource = WorkflowResource(name: "Logger", owner: "elegantchaos", workflow: "tests")
-    let session = JSONSession.Session(base: URL(string: "https://api.github.com")!, token: "test-token")
-
-    #expect(resource.path(in: session) == "repos/elegantchaos/Logger/actions/workflows/tests.yml/runs")
+    #expect(resource.path == "repos/elegantchaos/Logger/actions/workflows/tests.yml/runs")
 }
 
 @Test
 func workflowResourcePathStripsYMLExtension() {
     let resource = WorkflowResource(name: "Logger", owner: "elegantchaos", workflow: "tests.yml")
-    let session = JSONSession.Session(base: URL(string: "https://api.github.com")!, token: "test-token")
-
-    #expect(resource.path(in: session) == "repos/elegantchaos/Logger/actions/workflows/tests.yml/runs")
+    #expect(resource.path == "repos/elegantchaos/Logger/actions/workflows/tests.yml/runs")
 }
 
 @Test
 func workflowResourcePathStripsYAMLExtension() {
     let resource = WorkflowResource(name: "Logger", owner: "elegantchaos", workflow: "tests.yaml")
-    let session = JSONSession.Session(base: URL(string: "https://api.github.com")!, token: "test-token")
-
-    #expect(resource.path(in: session) == "repos/elegantchaos/Logger/actions/workflows/tests.yml/runs")
+    #expect(resource.path == "repos/elegantchaos/Logger/actions/workflows/tests.yml/runs")
 }
 
 @Test
 func workflowResourcePathStripsUppercaseYAMLExtension() {
     let resource = WorkflowResource(name: "Logger", owner: "elegantchaos", workflow: "tests.YAML")
-    let session = JSONSession.Session(base: URL(string: "https://api.github.com")!, token: "test-token")
-
-    #expect(resource.path(in: session) == "repos/elegantchaos/Logger/actions/workflows/tests.yml/runs")
+    #expect(resource.path == "repos/elegantchaos/Logger/actions/workflows/tests.yml/runs")
 }
 
 @Test
 func workflowResourcePathForAllWorkflows() {
     let resource = WorkflowResource.allWorkflows(name: "Logger", owner: "elegantchaos")
-    let session = JSONSession.Session(base: URL(string: "https://api.github.com")!, token: "test-token")
-
-    #expect(resource.path(in: session) == "repos/elegantchaos/Logger/actions/runs")
+    #expect(resource.path == "repos/elegantchaos/Logger/actions/runs")
 }
 
 @Test
 func workflowResourcePathForWorkflowID() {
     let resource = WorkflowResource(name: "Logger", owner: "elegantchaos", workflowID: 12345)
-    let session = JSONSession.Session(base: URL(string: "https://api.github.com")!, token: "test-token")
-
-    #expect(resource.path(in: session) == "repos/elegantchaos/Logger/actions/workflows/12345/runs")
+    #expect(resource.path == "repos/elegantchaos/Logger/actions/workflows/12345/runs")
 }
 
 @Test
@@ -147,9 +135,7 @@ func workflowResourceDescriptionForIDAndAllWorkflows() {
 @Test
 func workflowsResourcePath() {
     let resource = WorkflowsResource(name: "Logger", owner: "elegantchaos")
-    let session = JSONSession.Session(base: URL(string: "https://api.github.com")!, token: "test-token")
-
-    #expect(resource.path(in: session) == "repos/elegantchaos/Logger/actions/workflows")
+    #expect(resource.path == "repos/elegantchaos/Logger/actions/workflows")
 }
 
 @Test

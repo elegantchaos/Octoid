@@ -7,7 +7,7 @@ import Foundation
 import JSONSession
 
 /// GitHub workflow listing payload for a repository.
-public struct Workflows: Codable {
+public struct Workflows: Codable, Sendable {
     /// Number of workflows reported by GitHub.
     public let total_count: Int
     /// Workflows available in the repository.
@@ -21,7 +21,7 @@ public struct Workflows: Codable {
 }
 
 /// Metadata describing a single GitHub Actions workflow.
-public struct Workflow: Codable {
+public struct Workflow: Codable, Sendable {
     /// Numeric workflow identifier.
     public let id: Int
     /// Workflow display name.
@@ -33,7 +33,7 @@ public struct Workflow: Codable {
 }
 
 /// Resource resolver for repository workflow discovery endpoint.
-public struct WorkflowsResource: ResourceResolver {
+public struct WorkflowsResource: ResourceResolver, Sendable {
     /// Repository name.
     public let name: String
     /// Repository owner.
@@ -46,9 +46,7 @@ public struct WorkflowsResource: ResourceResolver {
     }
 
     /// API path used to list workflows in the repository.
-    public func path(in session: JSONSession.Session) -> String {
-        "repos/\(owner)/\(name)/actions/workflows"
-    }
+    public var path: String { "repos/\(owner)/\(name)/actions/workflows" }
 }
 
 extension WorkflowsResource: CustomStringConvertible {
