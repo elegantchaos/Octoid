@@ -26,7 +26,7 @@ public struct RepositoryWorkflowTarget: Sendable, Hashable {
   public let workflowID: Int
   /// Workflow display name.
   public let name: String
-  /// Normalized workflow name used by ActionStatus workflow matching.
+  /// Workflow name with any `.yml`/`.yaml` suffix stripped for matching.
   public let normalizedName: String
 
   /// Creates a workflow target descriptor.
@@ -98,6 +98,7 @@ public extension Session {
   ) -> AsyncStream<RepositoryUpdate> {
     AsyncStream(RepositoryUpdate.self, bufferingPolicy: .bufferingNewest(100)) { continuation in
       let lifecycleTask = Task {
+        let keepAliveInterval = configuration.interval > .zero ? configuration.interval : .seconds(1)
         let workflowCoordinator = WorkflowRunPollingCoordinator(
           session: self,
           repository: repository,
@@ -106,16 +107,6 @@ public extension Session {
         )
 
         var endpointTasks: [Task<Void, Never>] = []
-        defer {
-          for task in endpointTasks {
-            task.cancel()
-          }
-
-          Task {
-            await workflowCoordinator.cancelAll()
-          }
-          continuation.finish()
-        }
 
         if configuration.pollEvents {
           endpointTasks.append(
@@ -166,11 +157,17 @@ public extension Session {
 
         while !Task.isCancelled {
           do {
-            try await Task.sleep(for: .seconds(60))
+            try await Task.sleep(for: keepAliveInterval)
           } catch {
             break
           }
         }
+
+        for task in endpointTasks {
+          task.cancel()
+        }
+        await workflowCoordinator.cancelAll()
+        continuation.finish()
       }
 
       continuation.onTermination = { _ in
@@ -286,14 +283,17 @@ private actor WorkflowRunPollingCoordinator {
   }
 
   /// Normalizes workflow names for string-based matching fallback.
+  ///
+  /// This strips a trailing workflow extension in a case-insensitive way
+  /// while preserving the original workflow name casing.
   private static func normalizeWorkflowName(_ name: String) -> String {
     let lowercased = name.lowercased()
     if lowercased.hasSuffix(".yaml") {
-      return String(lowercased.dropLast(5))
+      return String(name.dropLast(5))
     } else if lowercased.hasSuffix(".yml") {
-      return String(lowercased.dropLast(4))
+      return String(name.dropLast(4))
     } else {
-      return lowercased
+      return name
     }
   }
 

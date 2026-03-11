@@ -69,7 +69,6 @@ Create a JSONSession session and consume Octoid's repository update stream.
 ```swift
 import Foundation
 import Octoid
-
 import JSONSession
 
 let session = Session(
@@ -88,7 +87,7 @@ for await update in stream {
   case .workflows(let workflows):
     print("workflows: \(workflows.total_count)")
   case .workflowRuns(let target, let runs):
-    print("runs for \(target.name): \(runs.total_count)")
+    print("runs for \(target.name): \(runs.isEmpty ? "no runs" : "has runs")")
   case .message(_, let message):
     print("api message: \(message)")
   case .transportError(_, let description):

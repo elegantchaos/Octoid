@@ -215,6 +215,49 @@ func repositoryUpdatesPollsAllWorkflowRunsWhenNoWorkflowsAreActive() async throw
 }
 
 @Test
+func repositoryUpdatesPreservesWorkflowTargetNameCasing() async throws {
+    let workflowsPath = "/repos/elegantchaos/Octoid/actions/workflows"
+    let runsPath = "/repos/elegantchaos/Octoid/actions/workflows/30/runs"
+    let fetcher = ScriptedHTTPDataFetcher(
+        scriptedResponses: [
+            workflowsPath: [
+                .response(statusCode: 200, body: TestPayloads.workflowsWithMixedCaseName),
+            ],
+            runsPath: [
+                .response(statusCode: 200, body: TestPayloads.workflowRuns),
+            ],
+        ],
+        defaultStep: .response(statusCode: 304, body: Data())
+    )
+    let session = Session(base: URL(string: "https://api.example.com")!, token: "test-token", fetcher: fetcher)
+    let stream = session.repositoryUpdates(
+        for: RepositoryReference(owner: "elegantchaos", name: "Octoid"),
+        configuration: RepositoryPollConfiguration(interval: .milliseconds(25), pollEvents: false, pollWorkflows: true)
+    )
+
+    let updates = await collectUpdates(from: stream, count: 1, timeout: .seconds(2)) { update in
+        if case .workflowRuns = update {
+            return true
+        }
+        return false
+    }
+
+    #expect(updates.count == 1)
+    guard let first = updates.first else {
+        Issue.record("Expected at least one workflow-runs update.")
+        return
+    }
+
+    switch first {
+    case .workflowRuns(let target, _):
+        #expect(target.name == "MyTests")
+        #expect(target.normalizedName == "MyTests")
+    default:
+        Issue.record("Expected a workflow-runs update.")
+    }
+}
+
+@Test
 func repositoryUpdatesIgnoresNotModifiedResponses() async throws {
     let eventsPath = "/repos/elegantchaos/Octoid/events"
     let fetcher = ScriptedHTTPDataFetcher(
@@ -368,6 +411,22 @@ private enum TestPayloads {
               "name": "Legacy",
               "path": ".github/workflows/legacy.yml",
               "state": "disabled_manually"
+            }
+          ]
+        }
+        """.utf8
+    )
+
+    static let workflowsWithMixedCaseName = Data(
+        """
+        {
+          "total_count": 1,
+          "workflows": [
+            {
+              "id": 30,
+              "name": "MyTests",
+              "path": ".github/workflows/MyTests.yml",
+              "state": "active"
             }
           ]
         }
