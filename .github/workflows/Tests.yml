@@ -165,22 +165,29 @@ jobs:
             source "setup.sh"
             xcodebuild -downloadPlatform iOS > logs/download-iOS.log
             xcodebuild -workspace "$WORKSPACE" -scheme "$SCHEME" -showdestinations > logs/destinations-iOS.log
-            BEST_DESTINATION=$(awk '
-              /platform:iOS Simulator, id:/ && /name:iPhone/ && $0 !~ /unavailable/ {
-                id = ""
-                os = ""
-                name = ""
-                if (match($0, /id:[[:space:]]*([^,}]+)/, m)) id = m[1]
-                if (match($0, /OS:[[:space:]]*([^,}]+)/, m)) os = m[1]
-                if (match($0, /name:[[:space:]]*([^,}]+)/, m)) name = m[1]
-                if (id == "" || os == "" || tolower(os) ~ /beta/) next
-                split(os, v, ".")
-                major = v[1] + 0
-                minor = (v[2] == "" ? 0 : v[2] + 0)
-                patch = (v[3] == "" ? 0 : v[3] + 0)
-                printf "%d\t%d\t%d\t%s\t%s\t%s\n", major, minor, patch, os, id, name
-              }
-            ' logs/destinations-iOS.log | sort -k1,1nr -k2,2nr -k3,3nr | head -n 1)
+            extract_destination_field() {
+              local line="$1"
+              local field="$2"
+              printf '%s\n' "$line" | sed -nE "s/.*${field}:[[:space:]]*([^,}]+).*/\\1/p" | xargs
+            }
+            BEST_DESTINATION=$(
+              while IFS= read -r line
+              do
+                [[ "$line" == *"platform:iOS Simulator"* ]] || continue
+                [[ "$line" == *"name:iPhone"* ]] || continue
+                [[ "$line" != *"unavailable"* ]] || continue
+
+                id=$(extract_destination_field "$line" "id")
+                os=$(extract_destination_field "$line" "OS")
+                name=$(extract_destination_field "$line" "name")
+
+                [[ -n "$id" && -n "$os" ]] || continue
+                [[ "${os,,}" != *"beta"* ]] || continue
+
+                IFS=. read -r major minor patch <<< "$os"
+                printf "%d\t%d\t%d\t%s\t%s\t%s\n" "${major:-0}" "${minor:-0}" "${patch:-0}" "$os" "$id" "$name"
+              done < logs/destinations-iOS.log | sort -k1,1nr -k2,2nr -k3,3nr | head -n 1
+            )
             DESTINATION_OS=$(echo "$BEST_DESTINATION" | awk -F"\t" '{print $4}' | xargs)
             DESTINATION_ID=$(echo "$BEST_DESTINATION" | awk -F"\t" '{print $5}' | xargs)
             DESTINATION_NAME=$(echo "$BEST_DESTINATION" | awk -F"\t" '{print $6}' | xargs)
@@ -215,22 +222,29 @@ jobs:
             source "setup.sh"
             xcodebuild -downloadPlatform tvOS > logs/download-tvOS.log
             xcodebuild -workspace "$WORKSPACE" -scheme "$SCHEME" -showdestinations > logs/destinations-tvOS.log
-            BEST_DESTINATION=$(awk '
-              /platform:tvOS Simulator, id:/ && /name:Apple TV/ && $0 !~ /unavailable/ {
-                id = ""
-                os = ""
-                name = ""
-                if (match($0, /id:[[:space:]]*([^,}]+)/, m)) id = m[1]
-                if (match($0, /OS:[[:space:]]*([^,}]+)/, m)) os = m[1]
-                if (match($0, /name:[[:space:]]*([^,}]+)/, m)) name = m[1]
-                if (id == "" || os == "" || tolower(os) ~ /beta/) next
-                split(os, v, ".")
-                major = v[1] + 0
-                minor = (v[2] == "" ? 0 : v[2] + 0)
-                patch = (v[3] == "" ? 0 : v[3] + 0)
-                printf "%d\t%d\t%d\t%s\t%s\t%s\n", major, minor, patch, os, id, name
-              }
-            ' logs/destinations-tvOS.log | sort -k1,1nr -k2,2nr -k3,3nr | head -n 1)
+            extract_destination_field() {
+              local line="$1"
+              local field="$2"
+              printf '%s\n' "$line" | sed -nE "s/.*${field}:[[:space:]]*([^,}]+).*/\\1/p" | xargs
+            }
+            BEST_DESTINATION=$(
+              while IFS= read -r line
+              do
+                [[ "$line" == *"platform:tvOS Simulator"* ]] || continue
+                [[ "$line" == *"name:Apple TV"* ]] || continue
+                [[ "$line" != *"unavailable"* ]] || continue
+
+                id=$(extract_destination_field "$line" "id")
+                os=$(extract_destination_field "$line" "OS")
+                name=$(extract_destination_field "$line" "name")
+
+                [[ -n "$id" && -n "$os" ]] || continue
+                [[ "${os,,}" != *"beta"* ]] || continue
+
+                IFS=. read -r major minor patch <<< "$os"
+                printf "%d\t%d\t%d\t%s\t%s\t%s\n" "${major:-0}" "${minor:-0}" "${patch:-0}" "$os" "$id" "$name"
+              done < logs/destinations-tvOS.log | sort -k1,1nr -k2,2nr -k3,3nr | head -n 1
+            )
             DESTINATION_OS=$(echo "$BEST_DESTINATION" | awk -F"\t" '{print $4}' | xargs)
             DESTINATION_ID=$(echo "$BEST_DESTINATION" | awk -F"\t" '{print $5}' | xargs)
             DESTINATION_NAME=$(echo "$BEST_DESTINATION" | awk -F"\t" '{print $6}' | xargs)
@@ -265,22 +279,29 @@ jobs:
             source "setup.sh"
             xcodebuild -downloadPlatform watchOS > logs/download-watchOS.log
             xcodebuild -workspace "$WORKSPACE" -scheme "$SCHEME" -showdestinations > logs/destinations-watchOS.log
-            BEST_DESTINATION=$(awk '
-              /platform:watchOS Simulator, id:/ && /name:Apple Watch/ && $0 !~ /unavailable/ {
-                id = ""
-                os = ""
-                name = ""
-                if (match($0, /id:[[:space:]]*([^,}]+)/, m)) id = m[1]
-                if (match($0, /OS:[[:space:]]*([^,}]+)/, m)) os = m[1]
-                if (match($0, /name:[[:space:]]*([^,}]+)/, m)) name = m[1]
-                if (id == "" || os == "" || tolower(os) ~ /beta/) next
-                split(os, v, ".")
-                major = v[1] + 0
-                minor = (v[2] == "" ? 0 : v[2] + 0)
-                patch = (v[3] == "" ? 0 : v[3] + 0)
-                printf "%d\t%d\t%d\t%s\t%s\t%s\n", major, minor, patch, os, id, name
-              }
-            ' logs/destinations-watchOS.log | sort -k1,1nr -k2,2nr -k3,3nr | head -n 1)
+            extract_destination_field() {
+              local line="$1"
+              local field="$2"
+              printf '%s\n' "$line" | sed -nE "s/.*${field}:[[:space:]]*([^,}]+).*/\\1/p" | xargs
+            }
+            BEST_DESTINATION=$(
+              while IFS= read -r line
+              do
+                [[ "$line" == *"platform:watchOS Simulator"* ]] || continue
+                [[ "$line" == *"name:Apple Watch"* ]] || continue
+                [[ "$line" != *"unavailable"* ]] || continue
+
+                id=$(extract_destination_field "$line" "id")
+                os=$(extract_destination_field "$line" "OS")
+                name=$(extract_destination_field "$line" "name")
+
+                [[ -n "$id" && -n "$os" ]] || continue
+                [[ "${os,,}" != *"beta"* ]] || continue
+
+                IFS=. read -r major minor patch <<< "$os"
+                printf "%d\t%d\t%d\t%s\t%s\t%s\n" "${major:-0}" "${minor:-0}" "${patch:-0}" "$os" "$id" "$name"
+              done < logs/destinations-watchOS.log | sort -k1,1nr -k2,2nr -k3,3nr | head -n 1
+            )
             DESTINATION_OS=$(echo "$BEST_DESTINATION" | awk -F"\t" '{print $4}' | xargs)
             DESTINATION_ID=$(echo "$BEST_DESTINATION" | awk -F"\t" '{print $5}' | xargs)
             DESTINATION_NAME=$(echo "$BEST_DESTINATION" | awk -F"\t" '{print $6}' | xargs)
