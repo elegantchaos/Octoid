@@ -25,7 +25,7 @@ func liveEventsEndpointDecodesEvents() async throws {
         let context = IntegrationContext()
         let resource = EventsResource(name: repo.name, owner: repo.owner)
 
-        session.poll(
+        _ = await session.request(
             target: resource,
             context: context,
             processors: processorGroup(
@@ -34,8 +34,7 @@ func liveEventsEndpointDecodesEvents() async throws {
                     EventsCaptureProcessor().eraseToAnyProcessor(),
                     MessageProcessor<IntegrationContext>().eraseToAnyProcessor(),
                 ]
-            ),
-            for: DispatchTime.now()
+            )
         )
 
         let events = try await context.awaitEvents()
@@ -65,7 +64,7 @@ func liveWorkflowRunsEndpointDecodesRuns() async throws {
 
         // Discover workflows first, then fetch runs using workflow ID to avoid filename/case guesses.
         let workflowsResource = WorkflowsResource(name: repo.name, owner: repo.owner)
-        session.poll(
+        _ = await session.request(
             target: workflowsResource,
             context: context,
             processors: processorGroup(
@@ -74,8 +73,7 @@ func liveWorkflowRunsEndpointDecodesRuns() async throws {
                     WorkflowsCaptureProcessor().eraseToAnyProcessor(),
                     MessageProcessor<IntegrationContext>().eraseToAnyProcessor(),
                 ]
-            ),
-            for: DispatchTime.now()
+            )
         )
 
         let workflows = try await context.awaitWorkflows()
@@ -88,7 +86,7 @@ func liveWorkflowRunsEndpointDecodesRuns() async throws {
             owner: repo.owner,
             workflowID: discoveredWorkflow.id
         )
-        session.poll(
+        _ = await session.request(
             target: resource,
             context: context,
             processors: processorGroup(
@@ -97,8 +95,7 @@ func liveWorkflowRunsEndpointDecodesRuns() async throws {
                     WorkflowRunsCaptureProcessor().eraseToAnyProcessor(),
                     MessageProcessor<IntegrationContext>().eraseToAnyProcessor(),
                 ]
-            ),
-            for: DispatchTime.now()
+            )
         )
 
         let runs = try await context.awaitRuns()
@@ -127,7 +124,7 @@ func liveWorkflowsEndpointDecodesWorkflows() async throws {
         let context = IntegrationContext()
         let resource = WorkflowsResource(name: repo.name, owner: repo.owner)
 
-        session.poll(
+        _ = await session.request(
             target: resource,
             context: context,
             processors: processorGroup(
@@ -136,8 +133,7 @@ func liveWorkflowsEndpointDecodesWorkflows() async throws {
                     WorkflowsCaptureProcessor().eraseToAnyProcessor(),
                     MessageProcessor<IntegrationContext>().eraseToAnyProcessor(),
                 ]
-            ),
-            for: DispatchTime.now()
+            )
         )
 
         let workflows = try await context.awaitWorkflows()
@@ -160,7 +156,7 @@ func liveMissingWorkflowReturnsNotFoundMessage() async throws {
     let missingWorkflow = "definitely-not-a-real-workflow-\(UUID().uuidString)"
     let resource = WorkflowResource(
         name: "Logger", owner: "elegantchaos", workflow: missingWorkflow)
-    session.poll(
+    _ = await session.request(
         target: resource,
         context: context,
         processors: processorGroup(
@@ -169,12 +165,54 @@ func liveMissingWorkflowReturnsNotFoundMessage() async throws {
                 WorkflowRunsCaptureProcessor().eraseToAnyProcessor(),
                 MessageProcessor<IntegrationContext>().eraseToAnyProcessor(),
             ]
-        ),
-        for: DispatchTime.now()
+        )
     )
 
     let message = try await context.awaitMessage()
     #expect(message.message == "Not Found")
+}
+
+@Test
+func liveRepositoryUpdatesStreamEmitsWorkflowAndRunUpdates() async throws {
+    guard let configuration = await liveConfiguration(for: #function) else {
+        return
+    }
+
+    guard configuration.apiBaseURL.host == "api.github.com" else {
+        return
+    }
+
+    let session = JSONSession.Session(base: configuration.apiBaseURL, token: configuration.token)
+    let stream = session.repositoryUpdates(
+        for: RepositoryReference(owner: "elegantchaos", name: "Logger"),
+        configuration: RepositoryPollConfiguration(interval: .seconds(1), pollEvents: false, pollWorkflows: true)
+    )
+
+    let updates = await collectRepositoryUpdates(from: stream, count: 2, timeout: .seconds(12)) { update in
+        switch update {
+        case .workflows, .workflowRuns:
+            return true
+        case .events, .message, .transportError:
+            return false
+        }
+    }
+
+    let hasWorkflows = updates.contains { update in
+        if case .workflows = update {
+            return true
+        }
+        return false
+    }
+
+    let hasWorkflowRuns = updates.contains { update in
+        if case .workflowRuns = update {
+            return true
+        }
+        return false
+    }
+
+    #expect(hasWorkflows)
+    #expect(hasWorkflowRuns)
 }
 
 private func liveConfiguration(for testName: String) async -> IntegrationConfiguration? {
@@ -202,6 +240,35 @@ private func processorGroup(
     _ processors: [AnyProcessor<IntegrationContext>]
 ) -> AnyProcessorGroup<IntegrationContext> {
     AnyProcessorGroup(name: name, processors: processors)
+}
+
+private func collectRepositoryUpdates(
+    from stream: AsyncStream<RepositoryUpdate>,
+    count: Int,
+    timeout: Duration,
+    matching predicate: @escaping @Sendable (RepositoryUpdate) -> Bool
+) async -> [RepositoryUpdate] {
+    let collector = Task<[RepositoryUpdate], Never> {
+        var collected: [RepositoryUpdate] = []
+        for await update in stream {
+            if predicate(update) {
+                collected.append(update)
+            }
+            if collected.count >= count {
+                break
+            }
+        }
+        return collected
+    }
+
+    let timeoutTask = Task {
+        try? await Task.sleep(for: timeout)
+        collector.cancel()
+    }
+
+    let updates = await collector.value
+    timeoutTask.cancel()
+    return updates
 }
 
 private struct EventsCaptureProcessor: Processor {

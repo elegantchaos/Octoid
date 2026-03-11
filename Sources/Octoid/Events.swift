@@ -10,7 +10,7 @@ import JSONSession
 public typealias Events = [Event]
 
 /// Resource resolver for repository events endpoint.
-public struct EventsResource: ResourceResolver {
+public struct EventsResource: ResourceResolver, Sendable {
     /// Repository name.
     public let name: String
     /// Repository owner.
@@ -23,9 +23,7 @@ public struct EventsResource: ResourceResolver {
     }
 
     /// API path used to list repository events.
-    public func path(in session: JSONSession.Session) -> String {
-        return "repos/\(owner)/\(name)/events"
-    }
+    public var path: String { "repos/\(owner)/\(name)/events" }
 }
 
 extension EventsResource: CustomStringConvertible {
@@ -36,7 +34,7 @@ extension EventsResource: CustomStringConvertible {
 }
 
 /// Event-specific payload fields returned by GitHub.
-public struct EventPayload: Codable {
+public struct EventPayload: Codable, Sendable {
     /// Git ref associated with the event.
     let ref: String?
     /// Ref type such as `branch` or `tag`.
@@ -63,7 +61,7 @@ public struct EventPayload: Codable {
 
 
 /// Repository event metadata from the GitHub Events API.
-public struct Event: Codable {
+public struct Event: Codable, Sendable {
     /// Event identifier.
     public let id: String
     /// Event type name.

@@ -4,7 +4,7 @@
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
 /// Author metadata embedded within commit payloads.
-public struct Author: Codable {
+public struct Author: Codable, Sendable {
     /// Human-readable name.
     let name: String
     /// Contact email address.

@@ -11,7 +11,7 @@ import FoundationNetworking
 #endif
 
 /// Standard GitHub API error payload.
-public struct Message: Codable {
+public struct Message: Codable, Sendable {
     /// Human-readable error message.
     public let message: String
     /// URL to documentation for the error condition.
