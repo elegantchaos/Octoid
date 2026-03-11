@@ -182,7 +182,8 @@ jobs:
                 name=$(extract_destination_field "$line" "name")
 
                 [[ -n "$id" && -n "$os" ]] || continue
-                [[ "${os,,}" != *"beta"* ]] || continue
+                os_lower=$(printf '%s' "$os" | tr '[:upper:]' '[:lower:]')
+                [[ "$os_lower" != *"beta"* ]] || continue
 
                 IFS=. read -r major minor patch <<< "$os"
                 printf "%d\t%d\t%d\t%s\t%s\t%s\n" "${major:-0}" "${minor:-0}" "${patch:-0}" "$os" "$id" "$name"
@@ -239,7 +240,8 @@ jobs:
                 name=$(extract_destination_field "$line" "name")
 
                 [[ -n "$id" && -n "$os" ]] || continue
-                [[ "${os,,}" != *"beta"* ]] || continue
+                os_lower=$(printf '%s' "$os" | tr '[:upper:]' '[:lower:]')
+                [[ "$os_lower" != *"beta"* ]] || continue
 
                 IFS=. read -r major minor patch <<< "$os"
                 printf "%d\t%d\t%d\t%s\t%s\t%s\n" "${major:-0}" "${minor:-0}" "${patch:-0}" "$os" "$id" "$name"
@@ -296,7 +298,8 @@ jobs:
                 name=$(extract_destination_field "$line" "name")
 
                 [[ -n "$id" && -n "$os" ]] || continue
-                [[ "${os,,}" != *"beta"* ]] || continue
+                os_lower=$(printf '%s' "$os" | tr '[:upper:]' '[:lower:]')
+                [[ "$os_lower" != *"beta"* ]] || continue
 
                 IFS=. read -r major minor patch <<< "$os"
                 printf "%d\t%d\t%d\t%s\t%s\t%s\n" "${major:-0}" "${minor:-0}" "${patch:-0}" "$os" "$id" "$name"
