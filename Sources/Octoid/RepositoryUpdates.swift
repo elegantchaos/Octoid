@@ -55,6 +55,10 @@ public enum RepositoryUpdate: Sendable {
   case workflows(Workflows)
   /// Decoded workflow runs payload for a workflow target.
   case workflowRuns(target: RepositoryWorkflowTarget, runs: WorkflowRuns)
+  /// HTTP metadata observed for an endpoint response.
+  case responseMetadata(source: RepositoryUpdateSource, metadata: HTTPResponseMetadata)
+  /// GitHub reported that repository polling is rate limited.
+  case rateLimited(source: RepositoryUpdateSource, message: Message?, metadata: HTTPResponseMetadata)
   /// Decoded GitHub message payload for an endpoint.
   case message(source: RepositoryUpdateSource, message: Message)
   /// Transport-level polling error for an endpoint.
@@ -116,15 +120,8 @@ public extension Session {
                 every: configuration.interval,
                 initialDelay: configuration.initialDelay
               ) {
-                switch Self.decode(event, as: Events.self) {
-                case .payload(let payload):
-                  continuation.yield(.events(payload))
-                case .message(let message):
-                  continuation.yield(.message(source: .events, message: message))
-                case .transportError(let error):
-                  continuation.yield(.transportError(source: .events, description: error))
-                case .ignored:
-                  break
+                await Self.yieldDecoded(event, source: .events, as: Events.self, to: continuation) { payload in
+                  .events(payload)
                 }
               }
             }
@@ -139,16 +136,9 @@ public extension Session {
                 every: configuration.interval,
                 initialDelay: configuration.initialDelay
               ) {
-                switch Self.decode(event, as: Workflows.self) {
-                case .payload(let workflows):
-                  continuation.yield(.workflows(workflows))
+                await Self.yieldDecoded(event, source: .workflows, as: Workflows.self, to: continuation) { workflows in
                   await workflowCoordinator.updateTargets(from: workflows)
-                case .message(let message):
-                  continuation.yield(.message(source: .workflows, message: message))
-                case .transportError(let error):
-                  continuation.yield(.transportError(source: .workflows, description: error))
-                case .ignored:
-                  break
+                  return .workflows(workflows)
                 }
               }
             }
@@ -176,6 +166,38 @@ public extension Session {
     }
   }
 
+  /// Yields response metadata and decoded update values for a polling event.
+  fileprivate nonisolated static func yieldDecoded<Payload: Decodable & Sendable>(
+    _ event: PollDataEvent,
+    source: RepositoryUpdateSource,
+    as payloadType: Payload.Type,
+    to continuation: AsyncStream<RepositoryUpdate>.Continuation,
+    payloadUpdate: (Payload) async -> RepositoryUpdate
+  ) async {
+    switch Self.decode(event, as: payloadType) {
+      case .payload(let payload):
+        if let metadata = event.metadata {
+          continuation.yield(.responseMetadata(source: source, metadata: metadata))
+        }
+        continuation.yield(await payloadUpdate(payload))
+      case .rateLimited(let message, let metadata):
+        continuation.yield(.responseMetadata(source: source, metadata: metadata))
+        continuation.yield(.rateLimited(source: source, message: message, metadata: metadata))
+      case .message(let message):
+        if let metadata = event.metadata {
+          continuation.yield(.responseMetadata(source: source, metadata: metadata))
+        }
+        continuation.yield(.message(source: source, message: message))
+      case .transportError(let error):
+        if let metadata = event.metadata {
+          continuation.yield(.responseMetadata(source: source, metadata: metadata))
+        }
+        continuation.yield(.transportError(source: source, description: error))
+      case .ignored:
+        break
+    }
+  }
+
   /// Decodes a polling event into payload/message/error events.
   fileprivate nonisolated static func decode<Payload: Decodable & Sendable>(
     _ event: PollDataEvent,
@@ -186,6 +208,7 @@ public extension Session {
       return .transportError(error)
 
     case .response(let data, let response):
+      let metadata = response.metadata
       switch response.statusCode {
       case 304:
         return .ignored
@@ -197,17 +220,47 @@ public extension Session {
         } catch {
           return .transportError("Failed to decode \(payloadType): \(error)")
         }
-      case 400, 401, 403, 404:
-        do {
-          let decoder = JSONDecoder()
-          return .message(try decoder.decode(Message.self, from: data))
-        } catch {
-          return .transportError("Failed to decode message payload: \(error)")
-        }
+      case 400, 401, 403, 404, 429:
+        return decodeMessage(data: data, metadata: metadata)
       default:
         return .transportError("Unexpected HTTP status: \(response.statusCode)")
       }
     }
+  }
+
+  /// Decodes an API message and upgrades rate-limit responses to a semantic event.
+  private nonisolated static func decodeMessage<Payload: Decodable & Sendable>(
+    data: Data,
+    metadata: HTTPResponseMetadata
+  ) -> DecodedPollEvent<Payload> {
+    let message = try? JSONDecoder().decode(Message.self, from: data)
+    if isRateLimited(message: message, metadata: metadata) {
+      return .rateLimited(message, metadata)
+    }
+
+    if let message {
+      return .message(message)
+    }
+
+    return .transportError("Failed to decode message payload")
+  }
+
+  /// Returns whether a GitHub API response represents primary or secondary rate limiting.
+  private nonisolated static func isRateLimited(message: Message?, metadata: HTTPResponseMetadata) -> Bool {
+    if metadata.statusCode == 429 {
+      return true
+    }
+
+    if metadata.rateLimit?.retryAfter != nil {
+      return true
+    }
+
+    if metadata.statusCode == 403, metadata.rateLimit?.isDepleted == true {
+      return true
+    }
+
+    guard let text = message?.message.lowercased() else { return false }
+    return text.contains("rate limit")
   }
 }
 
@@ -215,6 +268,8 @@ public extension Session {
 private enum DecodedPollEvent<Payload> {
   /// Successfully decoded endpoint payload.
   case payload(Payload)
+  /// GitHub reported a rate-limit response.
+  case rateLimited(Message?, HTTPResponseMetadata)
   /// Successfully decoded GitHub API message.
   case message(Message)
   /// Transport or decoding failure description.
@@ -308,15 +363,8 @@ private actor WorkflowRunPollingCoordinator {
 
     return Task {
       for await event in session.pollData(for: resource, every: interval) {
-        switch Session.decode(event, as: WorkflowRuns.self) {
-        case .payload(let runs):
-          continuation.yield(.workflowRuns(target: target, runs: runs))
-        case .message(let message):
-          continuation.yield(.message(source: source, message: message))
-        case .transportError(let error):
-          continuation.yield(.transportError(source: source, description: error))
-        case .ignored:
-          break
+        await Session.yieldDecoded(event, source: source, as: WorkflowRuns.self, to: continuation) { runs in
+          .workflowRuns(target: target, runs: runs)
         }
       }
     }

@@ -1,5 +1,6 @@
 // swift-tools-version:6.2
 
+import Foundation
 import PackageDescription
 
 let package = Package(
@@ -7,20 +8,20 @@ let package = Package(
   platforms: [
     .macOS(.v26), .macCatalyst(.v26), .iOS(.v26), .tvOS(.v26), .watchOS(.v11),
   ],
-  
+
   products: [
     .library(
       name: "Octoid",
       targets: ["Octoid"])
   ],
-  
+
   dependencies: [
     .package(url: "https://github.com/elegantchaos/Logger.git", from: "2.0.1"),
     .package(url: "https://github.com/elegantchaos/JSONSession.git", from: "3.0.0"),
-    
+
     .package(url: "https://github.com/elegantchaos/ActionBuilderPlugin.git", from: "2.1.2"),
   ],
-  
+
   targets: [
     .target(
       name: "Octoid",
@@ -39,6 +40,19 @@ let package = Package(
       ]
     ),
   ],
-  
+
   swiftLanguageModes: [.v5]
 )
+
+let runIntegrationTests = ProcessInfo.processInfo.environment["OCTOID_RUN_INTEGRATION_TESTS"] == "1"
+if runIntegrationTests {
+  package.targets.append(
+    .testTarget(
+      name: "OctoidIntegrationTests",
+      dependencies: ["Octoid"],
+      resources: [
+        .process("Resources")
+      ]
+    )
+  )
+}

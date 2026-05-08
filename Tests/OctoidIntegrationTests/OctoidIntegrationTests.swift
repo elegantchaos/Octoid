@@ -192,7 +192,7 @@ func liveRepositoryUpdatesStreamEmitsWorkflowAndRunUpdates() async throws {
         switch update {
         case .workflows, .workflowRuns:
             return true
-        case .events, .message, .transportError:
+        case .events, .responseMetadata, .rateLimited, .message, .transportError:
             return false
         }
     }

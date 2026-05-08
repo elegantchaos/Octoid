@@ -38,7 +38,7 @@ public struct MessageProcessor<Context: MessageReceiver>: Processor {
     /// Processor display name.
     public let name = "message"
     /// Supported HTTP status codes.
-    public let codes = [400, 401, 403, 404]
+    public let codes = [400, 401, 403, 404, 429]
 
     /// Creates a message processor.
     public init() {

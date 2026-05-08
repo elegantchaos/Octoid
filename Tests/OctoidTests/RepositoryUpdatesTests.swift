@@ -83,6 +83,151 @@ func repositoryUpdatesMapsGitHubMessagePayloads() async throws {
 }
 
 @Test
+func repositoryUpdatesEmitsResponseMetadata() async throws {
+    let eventsPath = "/repos/elegantchaos/Octoid/events"
+    let fetcher = ScriptedHTTPDataFetcher(
+        scriptedResponses: [
+            eventsPath: [
+                .response(
+                    statusCode: 200,
+                    body: TestPayloads.events,
+                    headers: [
+                        "X-RateLimit-Limit": "5000",
+                        "X-RateLimit-Remaining": "4999",
+                        "X-RateLimit-Used": "1",
+                        "X-RateLimit-Reset": "1770000000",
+                        "X-RateLimit-Resource": "core",
+                    ]),
+            ],
+        ],
+        defaultStep: .response(statusCode: 304, body: Data())
+    )
+    let session = Session(base: URL(string: "https://api.example.com")!, token: "test-token", fetcher: fetcher)
+    let stream = session.repositoryUpdates(
+        for: RepositoryReference(owner: "elegantchaos", name: "Octoid"),
+        configuration: RepositoryPollConfiguration(interval: .milliseconds(25), pollEvents: true, pollWorkflows: false)
+    )
+
+    let updates = await collectUpdates(from: stream, count: 1, timeout: .seconds(2)) { update in
+        if case .responseMetadata = update {
+            return true
+        }
+        return false
+    }
+
+    #expect(updates.count == 1)
+    guard let first = updates.first else {
+        Issue.record("Expected at least one response metadata update.")
+        return
+    }
+
+    switch first {
+    case .responseMetadata(let source, let metadata):
+        #expect(source == .events)
+        #expect(metadata.statusCode == 200)
+        #expect(metadata.rateLimit?.limit == 5000)
+        #expect(metadata.rateLimit?.remaining == 4999)
+        #expect(metadata.rateLimit?.used == 1)
+        #expect(metadata.rateLimit?.resetDate == Date(timeIntervalSince1970: 1_770_000_000))
+        #expect(metadata.rateLimit?.resource == "core")
+    default:
+        Issue.record("Expected a response metadata update.")
+    }
+}
+
+@Test
+func repositoryUpdatesMapsRetryAfterResponsesToRateLimited() async throws {
+    let eventsPath = "/repos/elegantchaos/Octoid/events"
+    let fetcher = ScriptedHTTPDataFetcher(
+        scriptedResponses: [
+            eventsPath: [
+                .response(
+                    statusCode: 429,
+                    body: TestPayloads.rateLimitMessage,
+                    headers: ["Retry-After": "60"]),
+            ],
+        ],
+        defaultStep: .response(statusCode: 304, body: Data())
+    )
+    let session = Session(base: URL(string: "https://api.example.com")!, token: "test-token", fetcher: fetcher)
+    let stream = session.repositoryUpdates(
+        for: RepositoryReference(owner: "elegantchaos", name: "Octoid"),
+        configuration: RepositoryPollConfiguration(interval: .milliseconds(25), pollEvents: true, pollWorkflows: false)
+    )
+
+    let updates = await collectUpdates(from: stream, count: 1, timeout: .seconds(2)) { update in
+        if case .rateLimited = update {
+            return true
+        }
+        return false
+    }
+
+    #expect(updates.count == 1)
+    guard let first = updates.first else {
+        Issue.record("Expected at least one rate-limited update.")
+        return
+    }
+
+    switch first {
+    case .rateLimited(let source, let message, let metadata):
+        #expect(source == .events)
+        #expect(message?.message == "API rate limit exceeded")
+        #expect(metadata.statusCode == 429)
+        #expect(metadata.rateLimit?.retryAfter == 60)
+    default:
+        Issue.record("Expected a rate-limited update.")
+    }
+}
+
+@Test
+func repositoryUpdatesMapsDepletedForbiddenResponsesToRateLimited() async throws {
+    let eventsPath = "/repos/elegantchaos/Octoid/events"
+    let fetcher = ScriptedHTTPDataFetcher(
+        scriptedResponses: [
+            eventsPath: [
+                .response(
+                    statusCode: 403,
+                    body: TestPayloads.rateLimitMessage,
+                    headers: [
+                        "X-RateLimit-Remaining": "0",
+                        "X-RateLimit-Reset": "1770000000",
+                    ]),
+            ],
+        ],
+        defaultStep: .response(statusCode: 304, body: Data())
+    )
+    let session = Session(base: URL(string: "https://api.example.com")!, token: "test-token", fetcher: fetcher)
+    let stream = session.repositoryUpdates(
+        for: RepositoryReference(owner: "elegantchaos", name: "Octoid"),
+        configuration: RepositoryPollConfiguration(interval: .milliseconds(25), pollEvents: true, pollWorkflows: false)
+    )
+
+    let updates = await collectUpdates(from: stream, count: 1, timeout: .seconds(2)) { update in
+        if case .rateLimited = update {
+            return true
+        }
+        return false
+    }
+
+    #expect(updates.count == 1)
+    guard let first = updates.first else {
+        Issue.record("Expected at least one rate-limited update.")
+        return
+    }
+
+    switch first {
+    case .rateLimited(let source, let message, let metadata):
+        #expect(source == .events)
+        #expect(message?.message == "API rate limit exceeded")
+        #expect(metadata.statusCode == 403)
+        #expect(metadata.rateLimit?.remaining == 0)
+        #expect(metadata.rateLimit?.resetDate == Date(timeIntervalSince1970: 1_770_000_000))
+    default:
+        Issue.record("Expected a rate-limited update.")
+    }
+}
+
+@Test
 func repositoryUpdatesMapsTransportErrors() async throws {
     let eventsPath = "/repos/elegantchaos/Octoid/events"
     let fetcher = ScriptedHTTPDataFetcher(
@@ -143,7 +288,14 @@ func repositoryUpdatesPollsOnlyActiveWorkflowRunsWhenAvailable() async throws {
         configuration: RepositoryPollConfiguration(interval: .seconds(1), pollEvents: false, pollWorkflows: true)
     )
 
-    let updates = await collectUpdates(from: stream, count: 2, timeout: .seconds(3))
+    let updates = await collectUpdates(from: stream, count: 2, timeout: .seconds(3)) { update in
+        switch update {
+        case .workflows, .workflowRuns:
+            return true
+        case .events, .responseMetadata, .rateLimited, .message, .transportError:
+            return false
+        }
+    }
     #expect(updates.count == 2)
 
     let hasWorkflowsUpdate = updates.contains { update in
@@ -368,6 +520,15 @@ private enum TestPayloads {
         """
         {
           "message": "Not Found",
+          "documentation_url": "https://docs.github.com/rest"
+        }
+        """.utf8
+    )
+
+    static let rateLimitMessage = Data(
+        """
+        {
+          "message": "API rate limit exceeded",
           "documentation_url": "https://docs.github.com/rest"
         }
         """.utf8
