@@ -193,8 +193,8 @@ public extension Session {
           continuation.yield(.responseMetadata(source: source, metadata: metadata))
         }
         continuation.yield(.transportError(source: source, description: error))
-      case .ignored:
-        break
+      case .ignored(let metadata):
+        continuation.yield(.responseMetadata(source: source, metadata: metadata))
     }
   }
 
@@ -211,7 +211,7 @@ public extension Session {
       let metadata = response.metadata
       switch response.statusCode {
       case 304:
-        return .ignored
+        return .ignored(metadata)
       case 200:
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
@@ -275,7 +275,7 @@ private enum DecodedPollEvent<Payload> {
   /// Transport or decoding failure description.
   case transportError(String)
   /// Non-actionable poll response (such as HTTP 304).
-  case ignored
+  case ignored(HTTPResponseMetadata)
 }
 
 /// Maintains workflow-run polling streams for active workflows in a repository.

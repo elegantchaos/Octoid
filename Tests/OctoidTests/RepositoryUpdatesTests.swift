@@ -136,6 +136,51 @@ func repositoryUpdatesEmitsResponseMetadata() async throws {
 }
 
 @Test
+func repositoryUpdatesEmitsResponseMetadataForNotModifiedResponses() async throws {
+    let eventsPath = "/repos/elegantchaos/Octoid/events"
+    let fetcher = ScriptedHTTPDataFetcher(
+        scriptedResponses: [
+            eventsPath: [
+                .response(
+                    statusCode: 304,
+                    body: Data(),
+                    headers: [
+                        "X-RateLimit-Remaining": "4998",
+                    ]),
+            ],
+        ],
+        defaultStep: .response(statusCode: 304, body: Data())
+    )
+    let session = Session(base: URL(string: "https://api.example.com")!, token: "test-token", fetcher: fetcher)
+    let stream = session.repositoryUpdates(
+        for: RepositoryReference(owner: "elegantchaos", name: "Octoid"),
+        configuration: RepositoryPollConfiguration(interval: .milliseconds(25), pollEvents: true, pollWorkflows: false)
+    )
+
+    let updates = await collectUpdates(from: stream, count: 1, timeout: .seconds(2)) { update in
+        if case .responseMetadata = update {
+            return true
+        }
+        return false
+    }
+
+    #expect(updates.count == 1)
+    guard let first = updates.first else {
+        Issue.record("Expected at least one response metadata update.")
+        return
+    }
+
+    switch first {
+    case .responseMetadata(let source, let metadata):
+        #expect(source == .events)
+        #expect(metadata.statusCode == 304)
+        #expect(metadata.rateLimit?.remaining == 4998)
+    default:
+        Issue.record("Expected a response metadata update.")
+    }
+}
+
+@Test
 func repositoryUpdatesMapsRetryAfterResponsesToRateLimited() async throws {
     let eventsPath = "/repos/elegantchaos/Octoid/events"
     let fetcher = ScriptedHTTPDataFetcher(
@@ -410,7 +455,7 @@ func repositoryUpdatesPreservesWorkflowTargetNameCasing() async throws {
 }
 
 @Test
-func repositoryUpdatesIgnoresNotModifiedResponses() async throws {
+func repositoryUpdatesEmitsOnlyMetadataForNotModifiedResponses() async throws {
     let eventsPath = "/repos/elegantchaos/Octoid/events"
     let fetcher = ScriptedHTTPDataFetcher(
         scriptedResponses: [
@@ -427,7 +472,15 @@ func repositoryUpdatesIgnoresNotModifiedResponses() async throws {
     )
 
     let first = await firstUpdate(from: stream, timeout: .milliseconds(250))
-    #expect(first == nil)
+    switch first {
+    case .responseMetadata(let source, let metadata):
+        #expect(source == .events)
+        #expect(metadata.statusCode == 304)
+    case .events, .workflows, .workflowRuns, .rateLimited, .message, .transportError:
+        Issue.record("Expected only a response metadata update.")
+    case nil:
+        Issue.record("Expected response metadata for a not-modified response.")
+    }
 }
 
 private enum ScriptedFetchStep: Sendable {
