@@ -207,8 +207,7 @@ public extension Session {
     case .transportError(let error):
       return .transportError(error)
 
-    case .response(let data, let response):
-      let metadata = response.metadata
+    case .response(let data, let response, let metadata):
       switch response.statusCode {
       case 304:
         return .ignored(metadata)
