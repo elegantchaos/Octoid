@@ -77,6 +77,37 @@ func workflowDecodingAllowsNullHeadCommit() throws {
 }
 
 @Test
+func workflowRunsPreferInProgressRunOverNewerQueuedRun() throws {
+    let json = """
+    {
+      "total_count": 2,
+      "workflow_runs": [
+        {
+          "id": 42,
+          "run_number": 8,
+          "status": "queued",
+          "conclusion": null,
+          "head_commit": null
+        },
+        {
+          "id": 41,
+          "run_number": 7,
+          "status": "in_progress",
+          "conclusion": null,
+          "head_commit": null
+        }
+      ]
+    }
+    """.data(using: .utf8)!
+
+    let runs = try JSONDecoder().decode(WorkflowRuns.self, from: json)
+    let run = runs.latestRun
+
+    #expect(run.id == 41)
+    #expect(run.status == "in_progress")
+}
+
+@Test
 func workflowResourcePathForBareWorkflowName() {
     let resource = WorkflowResource(name: "Logger", owner: "elegantchaos", workflow: "tests")
     #expect(resource.path == "repos/elegantchaos/Logger/actions/workflows/tests.yml/runs")

@@ -18,12 +18,35 @@ public struct WorkflowRuns: Codable, Sendable {
         workflow_runs.isEmpty
     }
     
-    /// Latest run by `run_number`.
+    /// Most relevant run for display: currently running work first, otherwise latest by `run_number`.
     public var latestRun: WorkflowRun {
-        guard let latest = workflow_runs.max(by: { $0.run_number < $1.run_number }) else {
+        guard let latest = workflow_runs.max(by: Self.isLessRelevant) else {
             preconditionFailure("Attempted to read latestRun from an empty workflow run list.")
         }
         return latest
+    }
+
+    /// Sorts completed/queued runs below active in-progress runs, then by run number.
+    private static func isLessRelevant(lhs: WorkflowRun, rhs: WorkflowRun) -> Bool {
+        let lhsPriority = displayPriority(for: lhs.status)
+        let rhsPriority = displayPriority(for: rhs.status)
+        if lhsPriority != rhsPriority {
+            return lhsPriority < rhsPriority
+        }
+
+        return lhs.run_number < rhs.run_number
+    }
+
+    /// Display priority for statuses returned by GitHub Actions.
+    private static func displayPriority(for status: String) -> Int {
+        switch status {
+        case "in_progress":
+            return 3
+        case "queued", "pending", "requested", "waiting":
+            return 2
+        default:
+            return 1
+        }
     }
 }
 
